@@ -3,22 +3,33 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>LIBERTARIAN 2.0</title>
+    <title>📰 LIBERTARIAN 2.0</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
     <h1>📰 LIBERTARIAN 2.0</h1>
-    <p><a href="/form">➕ Agregar nuevo feed</a></p>
+    <p>
+        <a href="/form">➕ Agregar nuevo feed</a> |
+        <a href="/favorites">⭐ Ver favoritos</a>
+    </p>
 
     {{range .}}
     <div class="article">
-        <a href="{{.Link}}" target="_blank"><strong>{{.Title}}</strong></a><br>
+        <a href="{{.Link}}" target="_blank"><strong>{{.Title}}</strong></a>
+
+        <form action="/favorite" method="POST" style="display:inline;">
+            <input type="hidden" name="title" value="{{.Title}}">
+            <input type="hidden" name="link" value="{{.Link}}">
+            <input type="hidden" name="date" value="{{.Date}}">
+            <button type="submit">⭐</button>
+        </form>
+        <br>
         <small>{{.Date}}</small>
         <hr>
     </div>
     {{else}}
-    <p>No hay artículos aún.</p>
+    <p>No hay artículos.</p>
     {{end}}
 </body>
 
