@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>LIBERTARIAN 2.0</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <h1>📰 LIBERTARIAN 2.0</h1>
+    <p><a href="/form">➕ Agregar nuevo feed</a></p>
+
+    {{range .}}
+    <div class="article">
+        <a href="{{.Link}}" target="_blank"><strong>{{.Title}}</strong></a><br>
+        <small>{{.Date}}</small>
+        <hr>
+    </div>
+    {{else}}
+    <p>No hay artículos aún.</p>
+    {{end}}
+</body>
+
+</html>
