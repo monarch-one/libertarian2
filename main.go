@@ -87,5 +87,10 @@ func main() {
 	http.HandleFunc("/form", formHandler)
 	http.HandleFunc("/add", addHandler)
 
-	http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // fallback local
+	}
+	http.ListenAndServe(":"+port, nil)
+
 }
