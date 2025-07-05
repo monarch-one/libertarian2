@@ -1,14 +1,12 @@
 body {
-    font-family: system-ui, sans-serif;
-    background-color: #fefefe;
-    color: #111;
+    background-color: #121212;
+    color: #f5f5f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     padding: 2rem;
-    max-width: 700px;
-    margin: auto;
 }
 
 a {
-    color: #0057b7;
+    color: #80d0ff;
     text-decoration: none;
 }
 
@@ -16,6 +14,35 @@ a:hover {
     text-decoration: underline;
 }
 
-.article {
+h1 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+p {
+    margin-top: 0;
     margin-bottom: 1.5rem;
+}
+
+.article {
+    background-color: #1e1e1e;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+button {
+    background-color: transparent;
+    border: none;
+    color: gold;
+    font-size: 1.2rem;
+    cursor: pointer;
+    margin-left: 0.5rem;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 1rem 0;
 }
