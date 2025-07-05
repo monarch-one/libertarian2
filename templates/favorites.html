@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>⭐ Favoritos</title>
+</head>
+
+<body>
+    <h1>⭐ Favoritos</h1>
+    <p><a href="/">← Volver al lector</a></p>
+    {{range .}}
+    <div class="article">
+        <a href="{{.Link}}" target="_blank"><strong>{{.Title}}</strong></a><br>
+        <small>{{.Date}}</small>
+        <hr>
+    </div>
+    {{else}}
+    <p>No hay favoritos guardados.</p>
+    {{end}}
+</body>
+
+</html>
