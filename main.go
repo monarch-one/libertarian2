@@ -131,10 +131,37 @@ func favoritesPage(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, favorites)
 }
 
+func removeFavoriteHandler(w http.ResponseWriter, r *http.Request) {
+	link := r.FormValue("link")
+	if link == "" {
+		http.Redirect(w, r, "/favorites", http.StatusSeeOther)
+		return
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	var favorites []FavoriteArticle
+	data, _ := os.ReadFile("favorites.json")
+	json.Unmarshal(data, &favorites)
+
+	var updated []FavoriteArticle
+	for _, fav := range favorites {
+		if fav.Link != link {
+			updated = append(updated, fav)
+		}
+	}
+
+	newData, _ := json.MarshalIndent(updated, "", "  ")
+	os.WriteFile("favorites.json", newData, 0644)
+
+	http.Redirect(w, r, "/favorites", http.StatusSeeOther)
+}
+
 func main() {
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
-
+	http.HandleFunc("/remove", removeFavoriteHandler)
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/form", formHandler)
 	http.HandleFunc("/add", addHandler)
@@ -146,4 +173,5 @@ func main() {
 		port = "8080"
 	}
 	http.ListenAndServe(":"+port, nil)
+
 }
