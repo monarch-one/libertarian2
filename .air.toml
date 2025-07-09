@@ -1,0 +1,51 @@
+# .air.toml
+# This file configures 'air' to ignore specific directories
+# and optimize its watching behavior.
+
+[build]
+# Command to build your Go application.
+# Default: go build -o <tmpdir>/main .
+cmd = "go build -o ./tmp/main ." # Using ./tmp for the build output
+
+# Arguments for the build command.
+# args = ["-tags", "netgo"]
+
+# Binary name.
+# bin = "tmp/main" # This assumes 'tmp' directory in your project root
+
+# Path to watch for file changes.
+# Default: . (current directory)
+include_dir = [
+    ".", # Watch the current directory
+]
+
+# Paths to ignore for file changes.
+# This is where we'll add the BraveSoftware path.
+ignore_dir = [
+    "tmp", # Ignore the temporary build directory
+    "vendor", # If you use Go modules vendor directory
+    "node_modules", # If you have any frontend setup
+    # Add the problematic BraveSoftware path here, using the absolute path
+    "/Users/libertarian.one/Library/Application Support/BraveSoftware",
+    # You can add other 'Library/Application Support' subdirectories here if you keep seeing "failed to watch" errors
+    # "/Users/libertarian.one/Library/Application Support/Adobe",
+    # "/Users/libertarian.one/Library/Application Support/Bitcoin",
+]
+
+# Files to include even if their directory is ignored.
+# include_ext = ["go", "tpl", "tmpl", "html", "css", "js", "json"]
+
+# Exclude these types of files.
+# exclude_ext = ["go", "md"]
+
+# Run 'air' in verbose mode.
+# Default: false
+# verbose = true
+
+# [run]
+# # Command to run after build.
+# # Default: <bin>
+# cmd = "./tmp/main"
+
+# # Env variables for the run command.
+# # env = ["PORT=3000"]

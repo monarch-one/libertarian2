@@ -1,0 +1,37 @@
+# Binaries for programs
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.ko
+*.a
+*.gcno
+*.gcov
+
+# Go binaries
+/bin/
+/tmp/ # Tu carpeta 'tmp'
+/pkg/
+
+# Dependencies
+/vendor/
+
+# Test results
+*.test
+*.out
+
+# Go module cache (if not in project directory)
+# For Go modules stored outside the project dir, typically
+# $GOPATH/pkg/mod
+# $GOCACHE
+.go/
+
+# IntelliJ IDEA
+.idea/
+
+# VS Code
+.vscode/
+
+# Compiled Go programs
+main

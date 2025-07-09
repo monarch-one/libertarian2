@@ -2,29 +2,29 @@
 <html>
 
 <head>
-    <title>⭐ Favoritos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAVORITOS</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
-    <h1>⭐ Favoritos</h1>
-    <p><a href="/">← Volver al lector</a></p>
-    {{range .}}
-    <div class="article">
-        <a href="{{.Link}}" target="_blank"><strong>{{.Title}}</strong></a><br>
-        <small>{{.Date}}</small>
-
-        <form action="/remove" method="POST" style="display:inline;">
+    <div class="container">
+        <h1>FAVORITOS</h1>
+        <p><a href="/">← VOLVER AL LECTOR</a></p>
+        {{range .}}
+        <p class="article-line">
+            <span class="article-date">{{.Date}}</span>
+        <form action="/remove" method="POST" style="display:inline-block; margin: 0; padding: 0;">
             <input type="hidden" name="link" value="{{.Link}}">
-            <button type="submit" style="color:red; margin-left: 10px;">❌</button>
+            <button type="submit" class="star-button remove-button">✖</button>
         </form>
-
-        <hr>
+        <span class="article-source">{{.Source}}</span>
+        <a href="{{.Link}}" target="_blank">{{.Title}}</a>
+        </p>
+        {{else}}
+        <p>NO HAY FAVORITOS GUARDADOS.</p>
+        {{end}}
     </div>
-
-    {{else}}
-    <p>No hay favoritos guardados.</p>
-    {{end}}
 </body>
 
 </html>

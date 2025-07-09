@@ -1,14 +1,280 @@
+/* static/style.css */
 
+/* Variables CSS para facilitar la gestión de colores y fuentes */
+:root {
+  --bg-color: #1a1a2e;
+  /* Azul oscuro muy sutil */
+  --text-color: #e0e0e0;
+  /* Blanco roto para el texto principal */
+  --accent-color: #00bcd4;
+  /* Cian para enlaces y elementos interactivos */
+  --secondary-accent-color: #ffeb3b;
+  /* Amarillo para estrellas/favoritos */
+  --border-color: #3f3f5a;
+  /* Color de borde sutil */
+  --font-family-mono: 'JetBrains Mono', monospace;
+  /* Usar JetBrains Mono localmente */
+  --font-family-sans: 'Inter', 'Roboto', sans-serif;
+  /* Fuente sans-serif para títulos o elementos específicos */
+  --padding-base: 15px;
+  --border-radius-base: 5px;
+}
+
+/* Definición de la fuente JetBrains Mono localmente */
 @font-face {
-  font-family: 'JetBrainsMono Nerd';
+  font-family: 'JetBrains Mono';
   src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2');
-  font-weight: normal;
+  /* Asegúrate de que esta ruta sea correcta */
+  font-weight: 400;
   font-style: normal;
+  font-display: swap;
+  /* Muestra texto de respaldo mientras se carga la fuente */
+}
+
+/* Puedes añadir más @font-face si quieres usar diferentes pesos (Bold, Italic) */
+/* Ejemplo para JetBrains Mono Bold */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 body {
-  font-family: 'JetBrainsMono Nerd', monospace;
-  background-color: #121212;
-  color: #f5f5f5;
-  padding: 2rem;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family-mono);
+  /* Usar fuente monoespaciada profesional */
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 900px;
+  width: 95%;
+  margin: 20px auto;
+  padding: var(--padding-base);
+  background-color: #21213b;
+  /* Un poco más claro que el fondo para diferenciar */
+  border-radius: var(--border-radius-base);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+}
+
+h1 {
+  color: var(--accent-color);
+  font-family: var(--font-family-sans);
+  /* Títulos en sans-serif para mayor impacto */
+  text-align: center;
+  padding: 20px 0;
+  margin-top: 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 2.2em;
+  letter-spacing: 1px;
+}
+
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--secondary-accent-color);
+  text-decoration: underline;
+}
+
+p {
+  margin-bottom: 10px;
+}
+
+.feed-actions {
+  text-align: center;
+  margin-bottom: 25px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.feed-actions a {
+  display: inline-block;
+  background-color: #3a3a5e;
+  color: var(--text-color);
+  padding: 10px 15px;
+  margin: 0 10px;
+  border-radius: var(--border-radius-base);
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  border: 1px solid var(--border-color);
+}
+
+.feed-actions a:hover {
+  background-color: var(--accent-color);
+  color: #1a1a2e;
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+
+.article-line {
+  background-color: #2a2a4e;
+  /* Fondo ligeramente diferente para cada línea de artículo */
+  padding: 10px 15px;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--accent-color);
+  /* Barra lateral para destacar */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* Espacio entre los elementos de la línea */
+  border-radius: var(--border-radius-base);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-line:hover {
+  transform: translateX(5px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.article-date {
+  color: #9e9e9e;
+  /* Un gris más suave para la fecha */
+  font-size: 0.9em;
+  flex-shrink: 0;
+  /* Evita que la fecha se encoja */
+}
+
+.article-source {
+  color: var(--secondary-accent-color);
+  /* Color amarillo para la fuente */
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.article-line a {
+  flex-grow: 1;
+  /* Permite que el enlace del título ocupe el espacio restante */
+  white-space: nowrap;
+  /* Evita que el texto del título se envuelva */
+  overflow: hidden;
+  /* Oculta el texto que desborda */
+  text-overflow: ellipsis;
+  /* Añade puntos suspensivos para el texto desbordado */
+}
+
+
+.star-button,
+.remove-button {
+  background: none;
+  border: none;
+  color: var(--secondary-accent-color);
+  /* Amarillo para la estrella */
+  font-size: 1.5em;
+  /* Tamaño grande para los íconos */
+  cursor: pointer;
+  padding: 0 5px;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.remove-button {
+  color: #ff5252;
+  /* Rojo para el botón de eliminar */
+}
+
+.star-button:hover {
+  transform: scale(1.2);
+  color: var(--accent-color);
+}
+
+.remove-button:hover {
+  transform: scale(1.2);
+  color: #ff1744;
+}
+
+/* Estilos para el formulario (form.html) */
+form {
+  background-color: #21213b;
+  padding: calc(var(--padding-base) * 1.5);
+  border-radius: var(--border-radius-base);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  margin-top: 20px;
+}
+
+form label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-color);
+  font-family: var(--font-family-sans);
+}
+
+form input[type="text"],
+form input[type="submit"] {
+  width: calc(100% - 20px);
+  /* Ajustar el ancho */
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-base);
+  background-color: #3a3a5e;
+  /* Fondo de los inputs */
+  color: var(--text-color);
+  font-family: var(--font-family-mono);
+}
+
+form input[type="text"]::placeholder {
+  color: #888;
+}
+
+form input[type="submit"] {
+  background-color: var(--accent-color);
+  color: #1a1a2e;
+  cursor: pointer;
+  font-size: 1.1em;
+  font-weight: bold;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  width: auto;
+  /* Ancho automático para el botón de submit */
+  padding: 10px 20px;
+}
+
+form input[type="submit"]:hover {
+  background-color: var(--secondary-accent-color);
+  transform: translateY(-2px);
+}
+
+/* Mensajes de "No hay artículos" / "No hay favoritos" */
+/* Nota: La pseudoclase :has() no es compatible con todos los navegadores antiguos.
+   Si necesitas mayor compatibilidad, podrías añadir una clase CSS directamente
+   en el template para estos párrafos. */
+p:has(+ {
+      {
+      else
+    }
+
+  }) {
+  text-align: center;
+  color: #9e9e9e;
+  font-style: italic;
+  padding: 20px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius-base);
+  margin-top: 30px;
+}
+
+
+/* Estilos para el pie de página o información adicional si se agrega */
+footer {
+  margin-top: auto;
+  /* Empuja el pie de página hacia abajo */
+  padding: 20px;
+  text-align: center;
+  color: #555;
+  font-size: 0.8em;
+  border-top: 1px solid var(--border-color);
+  width: 100%;
 }

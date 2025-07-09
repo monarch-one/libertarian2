@@ -7,13 +7,15 @@
 </head>
 
 <body>
-    <h1>➕ Agregar nuevo Feed RSS</h1>
-    <form action="/add" method="POST">
-        <label>URL del feed:</label><br>
-        <input type="text" name="url" size="50"><br><br>
-        <input type="submit" value="Agregar Feed">
-    </form>
-    <p><a href="/">← Volver al lector</a></p>
+    <div class="container">
+        <h1>➕ Agregar nuevo Feed RSS</h1>
+        <form action="/add" method="POST">
+            <label for="url">URL del feed:</label><br>
+            <input type="text" id="url" name="url" size="50" placeholder="Ej: https://example.com/rss.xml"><br><br>
+            <input type="submit" value="Agregar Feed">
+        </form>
+        <p style="text-align: center; margin-top: 20px;"><a href="/">← Volver al lector</a></p>
+    </div>
 </body>
 
 </html>

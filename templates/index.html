@@ -3,35 +3,36 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>📰 LIBERTARIAN 2.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIBERTARIAN 2.0</title>
     <link rel="stylesheet" href="/static/style.css">
-
 </head>
 
 <body>
-    <h1>📰 LIBERTARIAN 2.0</h1>
-    <p>
-        <a href="/form">➕ Agregar nuevo feed</a> |
-        <a href="/favorites">⭐ Ver favoritos</a>
-    </p>
+    <div class="container">
+        <h1>LIBERTARIAN 2.0</h1>
+        <p class="feed-actions">
+            <a href="/form">➕ AGREGAR NUEVO FEED</a>
+            <a href="/favorites">⭐ VER FAVORITOS</a>
+        </p>
 
-    {{range .}}
-    <div class="article">
-        <a href="{{.Link}}" target="_blank"><strong>{{.Title}}</strong></a>
-
-        <form action="/favorite" method="POST" style="display:inline;">
+        {{range .}}
+        <p class="article-line">
+            <span class="article-date">{{.Date}}</span>
+        <form action="/favorite" method="POST" style="display:inline-block; margin: 0; padding: 0;">
             <input type="hidden" name="title" value="{{.Title}}">
             <input type="hidden" name="link" value="{{.Link}}">
             <input type="hidden" name="date" value="{{.Date}}">
-            <button type="submit">⭐</button>
+            <input type="hidden" name="source" value="{{.Source}}">
+            <button type="submit" class="star-button">⭒</button>
         </form>
-        <br>
-        <small>{{.Date}}</small>
-        <hr>
+        <span class="article-source">{{.Source}}</span>
+        <a href="{{.Link}}" target="_blank">{{.Title}}</a>
+        </p>
+        {{else}}
+        <p>NO HAY ARTÍCULOS.</p>
+        {{end}}
     </div>
-    {{else}}
-    <p>No hay artículos.</p>
-    {{end}}
 </body>
 
 </html>
