@@ -1,38 +1,30 @@
 /* static/style.css */
 
-/* Variables CSS para facilitar la gestión de colores y fuentes */
 :root {
-  --bg-color: #1a1a2e;
-  /* Azul oscuro muy sutil */
-  --text-color: #e0e0e0;
-  /* Blanco roto para el texto principal */
-  --accent-color: #00bcd4;
-  /* Cian para enlaces y elementos interactivos */
-  --secondary-accent-color: #ffeb3b;
-  /* Amarillo para estrellas/favoritos */
-  --border-color: #3f3f5a;
-  /* Color de borde sutil */
-  --font-family-mono: 'JetBrains Mono', monospace;
-  /* Usar JetBrains Mono localmente */
-  --font-family-sans: 'Inter', 'Roboto', sans-serif;
-  /* Fuente sans-serif para títulos o elementos específicos */
-  --padding-base: 15px;
-  --border-radius-base: 5px;
+  --bg-color: #000000;
+  --text-color: #ffffff;
+  /* Blanco para todo el texto */
+  --accent-color: #ffffff;
+  /* Blanco para enlaces y botones (el color principal) */
+  --secondary-accent-color: #aaaaaa;
+  /* Un gris claro para otros elementos interactivos si se necesitan */
+  --highlight-color: #ffff00;
+  /* Amarillo para el hover del texto y estrellas favoritas */
+
+  /* JetBrains Mono como fuente principal con fallback a monoespaciada genérica */
+  --font-family-mono: 'JetBrains Mono', 'JetBrainsMono Nerd Font', 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
-/* Definición de la fuente JetBrains Mono localmente */
+/* Declaraciones @font-face para JetBrains Mono */
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2');
-  /* Asegúrate de que esta ruta sea correcta */
+  src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2'),
+       url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  /* Muestra texto de respaldo mientras se carga la fuente */
 }
 
-/* Puedes añadir más @font-face si quieres usar diferentes pesos (Bold, Italic) */
-/* Ejemplo para JetBrains Mono Bold */
 @font-face {
   font-family: 'JetBrains Mono';
   src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf') format('truetype');
@@ -41,189 +33,665 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* =========================
+   TAB SYSTEM STYLES
+   ========================= */
+
+/* Brand Header */
+.brand-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid #333;
+}
+
+.brand-header h1 {
+  font-family: var(--font-family-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-color);
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  justify-content: space-between;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #333;
+  overflow-x: auto;
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  color: var(--secondary-accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 12px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  flex: 1;
+  text-align: center;
+}
+
+.tab-button:hover {
+  color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button.active {
+  color: var(--highlight-color);
+  border-bottom-color: var(--highlight-color);
+  background: rgba(255, 255, 0, 0.1);
+}
+
+/* Tab Content */
+.tab-content {
+  min-height: 500px;
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Tab Headers */
+.tab-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.tab-header h2 {
+  font-family: var(--font-family-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent-color);
+  margin: 0 0 8px 0;
+}
+
+.tab-description {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--secondary-accent-color);
+  margin: 0;
+}
+
+/* Feeds Tab Specific */
+.feeds-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+
+.refresh-button {
+  background: transparent;
+  border: 1px solid var(--secondary-accent-color);
+  color: var(--secondary-accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Config Tab Specific */
+.config-section {
+  margin-bottom: 32px;
+  padding: 20px;
+  border: 1px solid #333;
+  border-radius: 4px;
+}
+
+.config-section h3 {
+  font-family: var(--font-family-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-color);
+  margin: 0 0 16px 0;
+}
+
+.config-section h4 {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--secondary-accent-color);
+  margin: 16px 0 8px 0;
+}
+
+/* Import Section */
+.import-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.upload-button {
+  background: transparent;
+  border: 2px dashed var(--secondary-accent-color);
+  color: var(--secondary-accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  padding: 16px 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 300px;
+}
+
+.upload-button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.file-name {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  color: var(--highlight-color);
+}
+
+.import-button {
+  background: var(--accent-color);
+  border: none;
+  color: var(--bg-color);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: center;
+}
+
+.import-button:hover {
+  background: var(--highlight-color);
+}
+
+/* Manual Add Form */
+.manual-add {
+  border-top: 1px solid #333;
+  padding-top: 16px;
+}
+
+#manual-feed-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#feed-url {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--secondary-accent-color);
+  color: var(--accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+#feed-url:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+#manual-feed-form button {
+  background: transparent;
+  border: 1px solid var(--secondary-accent-color);
+  color: var(--secondary-accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#manual-feed-form button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* Feeds Management */
+.feeds-management {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feeds-stats {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--secondary-accent-color);
+}
+
+.management-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.export-button, .clear-cache-button {
+  background: transparent;
+  border: 1px solid var(--secondary-accent-color);
+  color: var(--secondary-accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.export-button:hover, .clear-cache-button:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* Settings Grid */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-item label {
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  color: var(--secondary-accent-color);
+}
+
+.setting-item select, .setting-item input {
+  background: transparent;
+  border: 1px solid var(--secondary-accent-color);
+  color: var(--accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+.setting-item select:focus, .setting-item input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* Loading and Error Messages */
+.loading-message, .error-message {
+  text-align: center;
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--secondary-accent-color);
+  padding: 32px;
+}
+
+.error-message {
+  color: #ff6666;
+}
+
+/* Import Success Message */
+.import-success-message {
+  background: rgba(255, 255, 0, 0.1);
+  border: 1px solid var(--highlight-color);
+  color: var(--highlight-color);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  padding: 12px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+/* Responsive Design for Tabs */
+@media (max-width: 720px) {
+  .tab-navigation {
+    justify-content: space-between;
+  }
+  
+  .tab-button {
+    flex: 1;
+    font-size: 11px;
+    padding: 10px 8px;
+  }
+  
+  .brand-header h1 {
+    font-size: 20px;
+  }
+  
+  .config-section {
+    padding: 16px;
+  }
+  
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  #manual-feed-form {
+    flex-direction: column;
+  }
+  
+  #manual-feed-form button {
+    align-self: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab-button {
+    flex: 1;
+    font-size: 10px;
+    padding: 8px 6px;
+  }
+  
+  .brand-header h1 {
+    font-size: 18px;
+  }
+  
+  .feeds-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .management-actions {
+    flex-direction: column;
+  }
+}
+
+
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
   font-family: var(--font-family-mono);
-  /* Usar fuente monoespaciada profesional */
-  line-height: 1.6;
-  margin: 0;
-  padding: 0;
+  font-size: 0.85em; /* Más pequeño para aprovechar mejor el espacio */
+  line-height: 1.1; /* Más compacto */
+  margin: 0; /* Sin márgenes en el body */
+  padding: 10px; /* Padding para separar del borde */
+  text-align: left;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-height: 100vh;
+  justify-content: center; /* Centrar horizontalmente */
+  min-height: 100vh; /* Altura mínima de pantalla completa */
 }
 
-.container {
-  max-width: 900px;
-  width: 95%;
-  margin: 20px auto;
-  padding: var(--padding-base);
-  background-color: #21213b;
-  /* Un poco más claro que el fondo para diferenciar */
-  border-radius: var(--border-radius-base);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-color);
+/* Contenedor principal centrado y responsive */
+.main-container {
+  width: 100%;
+  max-width: 720px; /* Límite máximo */
+  min-width: 320px; /* Límite mínimo para móviles */
+}
+
+/* Encabezado Principal (para index.html y favorites.html) */
+.header-container {
+  display: flex;
+  flex-direction: column;
+  /* Apilar elementos verticalmente */
+  align-items: flex-start; /* Alineado a la izquierda */
+  margin-bottom: 10px; /* Reducido el margen */
 }
 
 h1 {
-  color: var(--accent-color);
-  font-family: var(--font-family-sans);
-  /* Títulos en sans-serif para mayor impacto */
-  text-align: center;
-  padding: 20px 0;
-  margin-top: 0;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 2.2em;
-  letter-spacing: 1px;
+  color: var(--text-color);
+  text-align: left; /* Alineado a la izquierda */
+  margin: 0 0 5px 0; /* Margen reducido */
+  font-weight: normal;
+  font-size: 1.1em; /* Tamaño más pequeño */
+}
+
+/* Contenedor para los enlaces de acción (para index.html y favorites.html) */
+.feed-actions {
+  display: flex;
+  justify-content: flex-start; /* Alineado a la izquierda */
+  align-items: center;
+  gap: 1ch; /* Espacio reducido entre enlaces */
+  margin-bottom: 10px; /* Margen reducido */
+}
+
+.action-divider {
+  color: var(--text-color);
 }
 
 a {
   color: var(--accent-color);
+  /* Los enlaces son blancos por defecto */
   text-decoration: none;
-  transition: color 0.3s ease;
+  /* Sin subrayado por defecto */
 }
 
-a:hover {
-  color: var(--secondary-accent-color);
-  text-decoration: underline;
-}
-
-p {
-  margin-bottom: 10px;
-}
-
-.feed-actions {
-  text-align: center;
-  margin-bottom: 25px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.feed-actions a {
-  display: inline-block;
-  background-color: #3a3a5e;
-  color: var(--text-color);
-  padding: 10px 15px;
-  margin: 0 10px;
-  border-radius: var(--border-radius-base);
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  border: 1px solid var(--border-color);
-}
-
-.feed-actions a:hover {
-  background-color: var(--accent-color);
-  color: #1a1a2e;
-  text-decoration: none;
-  transform: translateY(-2px);
-}
-
-.article-line {
-  background-color: #2a2a4e;
-  /* Fondo ligeramente diferente para cada línea de artículo */
-  padding: 10px 15px;
-  margin-bottom: 8px;
-  border-left: 3px solid var(--accent-color);
-  /* Barra lateral para destacar */
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  /* Espacio entre los elementos de la línea */
-  border-radius: var(--border-radius-base);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
+/* ESTILOS DE HOVER PARA LA LÍNEA COMPLETA: CAMBIAR COLOR DE TEXTO A AMARILLO */
 .article-line:hover {
-  transform: translateX(5px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  background-color: transparent;
+  /* Asegurar que no haya fondo */
+  color: var(--highlight-color);
+  /* Texto amarillo en hover */
+  cursor: pointer;
+  /* Indicar que es clickeable */
 }
 
-.article-date {
-  color: #9e9e9e;
-  /* Un gris más suave para la fecha */
-  font-size: 0.9em;
-  flex-shrink: 0;
-  /* Evita que la fecha se encoja */
+/* Cuando la línea está en hover, los enlaces y botones dentro también cambian de color */
+.article-line:hover a,
+.article-line:hover .star-button {
+  color: var(--highlight-color);
+  /* El texto de los enlaces y botones también se vuelve amarillo */
+  text-decoration: none;
+  /* Asegurar que no haya subrayado en hover */
+  font-weight: normal;
+  /* Asegurar que no haya negrita en hover */
 }
 
-.article-source {
-  color: var(--secondary-accent-color);
-  /* Color amarillo para la fuente */
-  font-weight: bold;
-  flex-shrink: 0;
+/* Keyboard selection styles */
+.article-line.keyboard-selected {
+  background-color: transparent;
+  color: var(--highlight-color);
+  /* Texto amarillo para selección por teclado */
 }
 
-.article-line a {
-  flex-grow: 1;
-  /* Permite que el enlace del título ocupe el espacio restante */
+.article-line.keyboard-selected a,
+.article-line.keyboard-selected .star-button {
+  color: var(--highlight-color);
+  text-decoration: none;
+  font-weight: normal;
+}
+
+
+/* Estilos para las líneas de artículos */
+.article-line {
+  display: flex;
+  /* Usa flexbox para las columnas */
+  align-items: baseline;
+  /* Alinea los elementos en la base de la línea */
   white-space: nowrap;
-  /* Evita que el texto del título se envuelva */
+  /* Evita que el texto salte de línea dentro de las columnas */
   overflow: hidden;
-  /* Oculta el texto que desborda */
+  /* Oculta cualquier contenido que se desborde */
   text-overflow: ellipsis;
   /* Añade puntos suspensivos para el texto desbordado */
+  margin-bottom: 3px; /* Reducido el espacio entre líneas */
+  width: 100%;
+  /* Ocupa todo el ancho disponible */
+  padding-right: 5px; /* Reducido el padding */
+  /* Transición suave para el hover */
+  transition: color 0.1s ease-in-out;
 }
 
+.star-button-container {
+  width: 60px; /* Ancho fijo para SAVE/SAVED */
+  flex-shrink: 0;
+  text-align: left;
+  padding: 0;
+  margin-right: 8px;
+  display: flex;
+  align-items: baseline;
+}
 
-.star-button,
-.remove-button {
+.star-button {
   background: none;
   border: none;
-  color: var(--secondary-accent-color);
-  /* Amarillo para la estrella */
-  font-size: 1.5em;
-  /* Tamaño grande para los íconos */
+  color: var(--accent-color);
+  font-size: 1em; /* Mismo tamaño que el resto del texto */
   cursor: pointer;
-  padding: 0 5px;
-  transition: transform 0.2s ease, color 0.2s ease;
+  padding: 0;
+  margin: 0;
+  line-height: inherit;
+  font-family: var(--font-family-mono); /* Asegurar que use JetBrains Mono */
+  font-weight: 400;
+  text-transform: uppercase; /* Forzar mayúsculas */
+  transition: color 0.1s ease-in-out;
 }
 
-.remove-button {
-  color: #ff5252;
-  /* Rojo para el botón de eliminar */
-}
-
-.star-button:hover {
-  transform: scale(1.2);
+/* Botón SAVE en la página de artículo con tamaño unificado */
+.article-meta-line .star-button {
+  font-size: 1em; /* Mismo tamaño que el resto */
   color: var(--accent-color);
 }
 
-.remove-button:hover {
-  transform: scale(1.2);
-  color: #ff1744;
+/* Estilo para texto SAVED (amarillo cuando está guardado) */
+.star-favorite {
+  color: #FFD700 !important;
+  /* !important para asegurar que sobrescriba el hover */
+}
+
+/* Estilo para el botón de remover de favoritos */
+.remove-button {
+  color: var(--accent-color);
+  /* El botón de remover también es blanco por defecto */
+}
+
+/* Cuando la línea de un artículo de favorito está en hover, mantener el color amarillo */
+.article-line:hover .star-favorite {
+  color: #FFD700 !important;
+  /* El texto SAVED se mantiene amarillo al pasar el ratón */
+}
+
+
+.article-date {
+  width: var(--date-column-width);
+  /* Ancho fijo para la fecha */
+  flex-shrink: 0;
+  padding: 0;
+  margin-right: 0.5ch; /* Espaciado mínimo entre columnas */
+  text-align: left;
+}
+
+/* Separador visual sutil después de la fecha */
+.article-date::after {
+  content: "│";
+  color: var(--secondary-accent-color);
+  margin-left: 0.3ch;
+}
+
+.article-source {
+  width: var(--source-column-width);
+  /* Ancho fijo para la fuente */
+  flex-shrink: 0;
+  padding: 0;
+  margin-right: 0.5ch; /* Espaciado mínimo entre columnas */
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Separador visual sutil después de la fuente */
+.article-source::after {
+  content: "│";
+  color: var(--secondary-accent-color);
+  margin-left: 0.3ch;
+}
+
+.article-line a {
+  /* Esto es para el título del artículo */
+  flex-grow: 1;
+  /* Permite que el título ocupe el espacio restante */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Asegura que el título se mantenga en una línea */
+  padding-left: 0;
+  /* Sin padding adicional para alineación perfecta */
 }
 
 /* Estilos para el formulario (form.html) */
 form {
-  background-color: #21213b;
-  padding: calc(var(--padding-base) * 1.5);
-  border-radius: var(--border-radius-base);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  margin-top: 20px;
+  background-color: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  margin-top: 0;
+  white-space: pre-wrap;
+  max-width: 600px;
+  /* Limita el ancho del formulario */
+  margin-left: 0;
+  /* Asegura alineación izquierda */
 }
 
 form label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--text-color);
-  font-family: var(--font-family-sans);
-}
-
-form input[type="text"],
-form input[type="submit"] {
-  width: calc(100% - 20px);
-  /* Ajustar el ancho */
-  padding: 10px;
-  margin-bottom: 15px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-base);
-  background-color: #3a3a5e;
-  /* Fondo de los inputs */
+  display: inline;
+  margin-bottom: 0;
   color: var(--text-color);
   font-family: var(--font-family-mono);
+}
+
+form input[type="text"] {
+  width: 40ch;
+  /* Ancho fijo para el input de URL, ajusta según necesites */
+  padding: 0;
+  margin-bottom: 10px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-color);
+  font-family: var(--font-family-mono);
+  border-bottom: 1px solid var(--text-color);
 }
 
 form input[type="text"]::placeholder {
@@ -231,50 +699,598 @@ form input[type="text"]::placeholder {
 }
 
 form input[type="submit"] {
-  background-color: var(--accent-color);
-  color: #1a1a2e;
+  color: var(--accent-color);
   cursor: pointer;
-  font-size: 1.1em;
-  font-weight: bold;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  width: auto;
-  /* Ancho automático para el botón de submit */
-  padding: 10px 20px;
+  font-size: 1em;
+  font-weight: normal;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--accent-color);
+  /* Subrayado para el botón */
+  background-color: transparent;
+  transition: color 0.1s ease-in-out;
+  /* Transición para el botón submit */
 }
 
 form input[type="submit"]:hover {
-  background-color: var(--secondary-accent-color);
-  transform: translateY(-2px);
+  color: var(--highlight-color);
+  /* Cambiar a amarillo al pasar el ratón */
+  text-decoration: none;
+  /* Asegurar que no haya subrayado en hover */
 }
 
-/* Mensajes de "No hay artículos" / "No hay favoritos" */
-/* Nota: La pseudoclase :has() no es compatible con todos los navegadores antiguos.
-   Si necesitas mayor compatibilidad, podrías añadir una clase CSS directamente
-   en el template para estos párrafos. */
-p:has(+ {
-      {
-      else
-    }
+/* Mensajes de "No hay artículos/favoritos" */
+.no-items {
+  color: var(--text-color);
+  text-align: left;
+  margin-top: 20px;
+}
 
-  }) {
+/* Estilos específicos para la página de favoritos */
+body.favorites-page .article-line .star-button-container {
+  width: var(--star-column-width);
+  /* Mantener el ancho fijo para el botón de eliminar */
   text-align: center;
-  color: #9e9e9e;
+  /* Centrar el botón de eliminar */
+}
+
+/* Estilos para la página de artículo individual (article.html) */
+.article-page-content {
+  max-width: 800px;
+  /* Ancho máximo para el contenido de lectura */
+  margin: 20px auto;
+  /* Centrar y añadir margen */
+  padding: 20px;
+  /* Borde eliminado para diseño ANCAP limpio */
+  box-sizing: border-box;
+  /* Incluir padding y borde en el ancho */
+}
+
+.article-page-content h2 {
+  color: var(--text-color);
+  margin-bottom: 15px;
+  font-weight: normal;
+  text-align: left;
+  font-size: 1.2em;
+}
+
+/* Nueva línea de metadatos sin líneas divisorias */
+.article-meta-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  /* Sin borde ni líneas */
+}
+
+.article-datetime-source {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: var(--text-color);
+  font-size: 0.9em;
+  font-family: var(--font-family-mono);
+}
+
+.article-datetime {
+  color: var(--text-color);
+}
+
+.article-source-name {
+  color: var(--secondary-accent-color);
+  text-transform: lowercase;
+}
+
+.no-content-message {
+  color: var(--secondary-accent-color);
+  font-style: italic;
+  margin: 20px 0;
+}
+
+/* Estilos para la imagen del artículo */
+.article-image {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.article-image img {
+  max-width: 100%;
+  height: auto;
+  max-height: 400px; /* Limitar altura máxima */
+  /* Borde eliminado para diseño ANCAP limpio */
+  object-fit: cover; /* Mantener proporción */
+}
+
+/* Estilos para el contenido scrapeado */
+.scraped-content {
+  line-height: 1.6;
+  margin-top: 20px;
+}
+
+.scraped-content p {
+  margin-bottom: 15px;
+}
+
+.scraped-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 15px 0;
+  /* Borde eliminado para diseño ANCAP limpio */
+  display: block; /* Centrar imágenes */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.scraped-content h1, 
+.scraped-content h2, 
+.scraped-content h3 {
+  color: var(--text-color);
+  margin: 20px 0 10px 0;
+  font-family: var(--font-family-mono);
+}
+
+.scraped-content a {
+  color: var(--highlight-color);
+}
+
+.scraped-content a:hover {
+  color: var(--text-color);
+}
+
+/* Mejorar el espaciado general */
+.scraped-content > * {
+  margin-bottom: 12px;
+}
+
+.scraped-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.article-original-link {
+  display: block;
+  /* Para que ocupe su propia línea */
+  margin-top: 30px;
+  font-size: 1em; /* Reducido del enlace original */
+  color: var(--highlight-color);
+  /* Enlace original en amarillo */
+  text-align: left;
+}
+
+.article-original-link:hover {
+  color: var(--text-color);
+  /* Vuelve a blanco al pasar el ratón */
+}
+
+/* Mejoras tipográficas específicas para JetBrains Mono */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-mono);
+  font-weight: 500; /* Medium weight para encabezados */
+  letter-spacing: -0.02em; /* Ajuste sutil de espaciado */
+}
+
+h1 {
+  font-weight: 700; /* Bold para el título principal */
+  font-size: 1.3em; /* Ajustado para ser consistente con el cambio anterior */
+}
+
+/* Optimización de legibilidad para texto monoespaciado */
+body, p, div, span {
+  font-feature-settings: "liga" 1, "calt" 1; /* Activar ligaduras y alternativas contextuales */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Mejora para enlaces */
+a {
+  font-weight: 400; /* Peso normal para enlaces */
+  text-decoration: none;
+}
+
+/* Mejora para elementos de entrada de texto */
+input, textarea, button {
+  font-family: var(--font-family-mono);
+  font-weight: 400;
+}
+
+/* OPML Import Form Styles */
+.opml-import-content {
+  max-width: 600px;
+  margin: 0;
+  padding: 0;
+}
+
+.opml-form {
+  background-color: transparent;
+  padding: 20px 0;
+  border: none;
+  margin: 0;
+}
+
+.file-input-container {
+  margin-bottom: 15px;
+}
+
+.file-input-container label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-color);
+  font-family: var(--font-family-mono);
+  font-weight: 400;
+}
+
+.file-input-container input[type="file"] {
+  width: 100%;
+  padding: 8px 0;
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  border-bottom: 1px solid var(--text-color);
+  font-family: var(--font-family-mono);
+  font-size: 1em;
+}
+
+.file-input-container input[type="file"]:focus {
+  outline: none;
+  border-bottom-color: var(--highlight-color);
+}
+
+.import-button {
+  color: var(--accent-color);
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: normal;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 1px solid var(--accent-color);
+  background-color: transparent;
+  transition: color 0.1s ease-in-out;
+  font-family: var(--font-family-mono);
+}
+
+.import-button:hover {
+  color: var(--highlight-color);
+  border-bottom-color: var(--highlight-color);
+}
+
+.import-info {
+  margin-top: 30px;
+  color: var(--secondary-accent-color);
+}
+
+.import-info h3 {
+  color: var(--text-color);
+  font-family: var(--font-family-mono);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.import-info ul {
+  list-style: none;
+  padding-left: 0;
+  font-family: var(--font-family-mono);
+}
+
+.import-info ul li {
+  margin-bottom: 5px;
+  color: var(--secondary-accent-color);
+}
+
+.import-info ul li:before {
+  content: "• ";
+  color: var(--text-color);
+}
+
+/* Import success message */
+.import-success-message {
+  color: var(--highlight-color);
+  font-family: var(--font-family-mono);
+  font-weight: 500;
+  background-color: transparent;
+  padding: 10px 0;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--highlight-color);
+  padding-left: 10px;
+}
+
+/* Keyboard shortcuts help */
+.keyboard-shortcuts-help {
+  margin-top: 30px;
+  padding-top: 20px;
+  /* Borde superior eliminado para diseño ANCAP limpio */
+}
+
+.shortcuts-toggle {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent-color);
+  color: var(--accent-color);
+  font-family: var(--font-family-mono);
+  font-size: 0.9em;
+  cursor: pointer;
+  padding: 5px 0;
+  transition: color 0.1s ease-in-out;
+}
+
+.shortcuts-toggle:hover {
+  color: var(--highlight-color);
+  border-bottom-color: var(--highlight-color);
+}
+
+.shortcuts-content {
+  margin-top: 15px;
+  padding: 15px 0;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  font-family: var(--font-family-mono);
+  font-size: 0.85em;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shortcut-key {
+  background-color: var(--secondary-accent-color);
+  color: var(--bg-color);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  min-width: 25px;
+  text-align: center;
+  font-size: 0.8em;
+}
+
+.shortcut-desc {
+  color: var(--text-color);
+  flex: 1;
+}
+
+/* Mobile and tablet responsive styles */
+@media screen and (max-width: 768px) {
+  body {
+    font-size: 0.9em;
+    line-height: 1.4;
+    padding: 10px;
+  }
+
+  .header-container {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .feed-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.85em;
+  }
+
+  .article-line {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 10px 0;
+    /* Línea de borde eliminada para diseño limpio */
+  }
+
+  .star-button-container {
+    order: -1;
+    align-self: flex-end;
+  }
+
+  .article-date, .article-source {
+    font-size: 0.8em;
+    color: var(--secondary-accent-color);
+  }
+
+  .shortcuts-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .shortcut-item {
+    gap: 8px;
+  }
+
+  .shortcut-key {
+    min-width: 30px;
+    padding: 4px 8px;
+  }
+
+  /* Article page specific mobile styles */
+  .article-page-content h2 {
+    font-size: 1.3em;
+    line-height: 1.3;
+    margin-bottom: 15px;
+  }
+
+  .article-meta-line {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .star-button {
+    align-self: flex-end;
+    font-size: 0.85em;
+    padding: 5px 10px;
+  }
+
+  .scraped-content {
+    font-size: 1em;
+    line-height: 1.5;
+  }
+
+  .scraped-content img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .article-original-link {
+    font-size: 0.8em;
+    word-break: break-all;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  body {
+    font-size: 0.85em;
+    padding: 8px;
+  }
+
+  h1 {
+    font-size: 1.1em;
+  }
+
+  .shortcuts-toggle {
+    font-size: 0.8em;
+  }
+
+  .shortcuts-grid {
+    font-size: 0.8em;
+  }
+}
+
+/* Media queries para diseño responsive */
+@media (max-width: 720px) {
+  :root {
+    --star-column-width: 5ch;
+    --date-column-width: 10ch;
+    --source-column-width: 13ch;
+  }
+  
+  body {
+    padding: 5px;
+    font-size: 0.8em;
+  }
+  
+  .main-container {
+    max-width: 100%;
+  }
+  
+  .feed-actions {
+    flex-wrap: wrap;
+    gap: 0.5ch;
+  }
+  
+  h1 {
+    font-size: 1em;
+  }
+  
+  .star-button-container,
+  .article-date,
+  .article-source {
+    margin-right: 0.3ch; /* Espaciado aún más reducido en tablets */
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --star-column-width: 4ch;
+    --date-column-width: 8ch;
+    --source-column-width: 10ch;
+  }
+  
+  body {
+    font-size: 0.75em;
+    padding: 3px;
+  }
+  
+  .article-line {
+    margin-bottom: 2px;
+  }
+  
+  .star-button-container,
+  .article-date,
+  .article-source {
+    margin-right: 0.2ch; /* Espaciado mínimo en móviles */
+  }
+}
+
+/* Estilos para artículos expandidos */
+.article-container {
+  width: 100%;
+}
+
+.article-line {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.article-line:hover {
+  background-color: rgba(var(--accent-color-rgb), 0.1);
+}
+
+.article-line.expanded {
+  background-color: rgba(var(--accent-color-rgb), 0.2);
+}
+
+.article-title {
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.article-content {
+  width: 100%;
+  background-color: var(--background-color);
+  padding: 0;
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+.article-body {
+  color: var(--text-color);
+}
+
+.article-body h1,
+.article-body h2,
+.article-body h3,
+.article-body h4,
+.article-body h5,
+.article-body h6 {
+  color: var(--accent-color);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.article-body p {
+  margin-bottom: 1em;
+}
+
+.article-body a {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+.article-body a:hover {
+  background-color: rgba(var(--accent-color-rgb), 0.1);
+}
+
+.article-content iframe {
+  width: 100%;
+  min-height: 600px;
+  border: none;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.article-loading,
+.article-error {
+  text-align: center;
+  color: var(--accent-color);
   font-style: italic;
   padding: 20px;
-  border: 1px dashed var(--border-color);
-  border-radius: var(--border-radius-base);
-  margin-top: 30px;
-}
-
-
-/* Estilos para el pie de página o información adicional si se agrega */
-footer {
-  margin-top: auto;
-  /* Empuja el pie de página hacia abajo */
-  padding: 20px;
-  text-align: center;
-  color: #555;
-  font-size: 0.8em;
-  border-top: 1px solid var(--border-color);
-  width: 100%;
 }

@@ -1,15 +1,21 @@
 [
   {
-    "url": "https://xkcd.com/rss.xml"
-  },
-  {
     "url": "https://www.reddit.com/r/golang/.rss"
   },
   {
-    "url": "https://news.ycombinator.com/rss"
+    "url": "https://xkcd.com/rss.xml"
+  },
+  {
+    "url": "http://showrss.info/user/22386.rss?magnets=true\u0026namespaces=true\u0026name=null\u0026quality=null\u0026re=null"
   },
   {
     "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCKONdcQCTP3aozARj1ntKhw"
+  },
+  {
+    "url": "http://www.matuk.com/feed/"
+  },
+  {
+    "url": "http://www.engadget.com/rss-full.xml"
   },
   {
     "url": "http://www.genbeta.com/index.xml"
@@ -36,6 +42,9 @@
     "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC1Myj674wRVXB9I4c6Hm5zA"
   },
   {
+    "url": "http://editorial.rottentomatoes.com/feed/"
+  },
+  {
     "url": "http://www.seriemaniac.com/feed/"
   },
   {
@@ -52,9 +61,6 @@
   },
   {
     "url": "http://whats-on-netflix.com/feed/"
-  },
-  {
-    "url": "http://showrss.info/user/22386.rss?magnets=true\u0026namespaces=true\u0026name=null\u0026quality=null\u0026re=null"
   },
   {
     "url": "http://www.comingsoon.net/tv/feed"
@@ -178,14 +184,5 @@
   },
   {
     "url": "https://somoskudasai.com/feed/"
-  },
-  {
-    "url": "http://www.matuk.com/feed/"
-  },
-  {
-    "url": "http://www.engadget.com/rss-full.xml"
-  },
-  {
-    "url": "http://editorial.rottentomatoes.com/feed/"
   }
 ]

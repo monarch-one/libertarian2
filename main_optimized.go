@@ -1,6 +1,7 @@
 package main
 
 import (
+"compress/gzip"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -12,7 +13,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
+	"sync"
+"time"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -28,7 +30,63 @@ type Article struct {
 	Date        string
 	Source      string
 	Description string
-	IsFav       bool
+	IsFavorite  bool
+
+// Cache structures  
+type FeedCache struct {
+data      []Article
+timestamp time.Time
+etag      string
+}
+
+type Cache struct {
+feeds map[string]*FeedCache
+mutex sync.RWMutex
+}
+
+func (c *Cache) get(feedURL string) ([]Article, bool) {
+c.mutex.RLock()
+defer c.mutex.RUnlock()
+
+cached, exists := c.feeds[feedURL]
+if !exists {
+return nil, false
+}
+
+if time.Since(cached.timestamp) > 15*time.Minute {
+delete(c.feeds, feedURL)
+return nil, false
+}
+
+log.Printf("📦 Cache HIT - Using cached data for: %s", feedURL)
+return cached.data, true
+}
+
+func (c *Cache) set(feedURL string, articles []Article, etag string) {
+c.mutex.Lock()
+defer c.mutex.Unlock()
+
+if c.feeds == nil {
+c.feeds = make(map[string]*FeedCache)
+}
+
+c.feeds[feedURL] = &FeedCache{
+data:      articles,
+timestamp: time.Now(),
+etag:      etag,
+}
+}
+
+type gzipResponseWriter struct {
+http.ResponseWriter
+io.Writer
+}
+
+func (w *gzipResponseWriter) Write(b []byte) (int, error) {
+return w.Writer.Write(b)
+}
+
+var globalCache = &Cache{}
 }
 
 type FavoriteArticle struct {
@@ -861,15 +919,30 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "."+r.URL.Path)
 }
 
+
+// Gzip Middleware
+func gzipMiddleware(next http.Handler) http.Handler {
+return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+next.ServeHTTP(w, r)
+return
+}
+
+w.Header().Set("Content-Encoding", "gzip")
+gz := gzip.NewWriter(w)
+defer gz.Close()
+
+gzw := &gzipResponseWriter{
+ResponseWriter: w,
+Writer:        gz,
+}
+
+next.ServeHTTP(gzw, r)
+})
+}
+
 func main() {
-		log.Println("🚀 Starting LIBERTARIAN 2.0 Server...")
-	log.Println("🌟 ¡LIBERTARIAN 2.0 optimizado!")
-	log.Println("📡 Servidor iniciado en http://localhost:8081")
-	log.Println("⚡ Funcionalidades activas:")
-	log.Println("   📰 RSS Reader con pestañas")
-	log.Println("   📁 Importador OPML")
-	log.Println("   ⭐ Sistema de favoritos")
-	log.Println("   🎨 JetBrains Mono font")
+	log.Printf("🚀 Starting LIBERTARIAN 2.0 Server...")
 
 	// Verificar que existan los archivos necesarios
 	if _, err := os.Stat("feeds.json"); os.IsNotExist(err) {
@@ -903,3 +976,7 @@ func main() {
 		log.Fatalf("❌ Server failed to start: %v", err)
 	}
 }
+
+
+
+

@@ -7,15 +7,62 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="main-container">
         <h1>➕ Agregar nuevo Feed RSS</h1>
         <form action="/add" method="POST">
-            <label for="url">URL del feed:</label><br>
-            <input type="text" id="url" name="url" size="50" placeholder="Ej: https://example.com/rss.xml"><br><br>
+            <label for="url">URL del feed:</label> <input type="text" id="url" name="url" size="50"
+                placeholder="Ej: https://example.com/rss.xml"><br>
             <input type="submit" value="Agregar Feed">
         </form>
-        <p style="text-align: center; margin-top: 20px;"><a href="/">← Volver al lector</a></p>
-    </div>
+        <p><a href="/">← Volver al lector</a></p>
+
+    <script>
+        // Keyboard shortcuts similar to ANCAP
+        document.addEventListener('keydown', function(e) {
+            switch(e.key.toLowerCase()) {
+                case 'h':
+                case 'arrowleft':
+                case 'escape':
+                    // Go back to home
+                    window.location.href = '/';
+                    break;
+                
+                case 'f':
+                    // Go to favorites
+                    window.location.href = '/favorites';
+                    break;
+                
+                case 'i':
+                    // Import OPML
+                    window.location.href = '/import-opml';
+                    break;
+                
+                case 'enter':
+                    // Submit form if input is focused or Ctrl+Enter
+                    if (e.ctrlKey || e.target.tagName === 'INPUT') {
+                        const form = document.querySelector('form');
+                        if (form) {
+                            form.submit();
+                        }
+                    }
+                    break;
+                
+                case 'r':
+                    // Refresh the page
+                    window.location.reload();
+                    break;
+            }
+        });
+
+        // Focus the URL input on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlInput = document.getElementById('url');
+            if (urlInput) {
+                urlInput.focus();
+            }
+        });
+    </script>
+    </div> <!-- main-container -->
 </body>
 
 </html>

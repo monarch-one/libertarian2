@@ -862,14 +862,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-		log.Println("🚀 Starting LIBERTARIAN 2.0 Server...")
-	log.Println("🌟 ¡LIBERTARIAN 2.0 optimizado!")
-	log.Println("📡 Servidor iniciado en http://localhost:8081")
-	log.Println("⚡ Funcionalidades activas:")
-	log.Println("   📰 RSS Reader con pestañas")
-	log.Println("   📁 Importador OPML")
-	log.Println("   ⭐ Sistema de favoritos")
-	log.Println("   🎨 JetBrains Mono font")
+	log.Printf("🚀 Starting LIBERTARIAN 2.0 Server...")
 
 	// Verificar que existan los archivos necesarios
 	if _, err := os.Stat("feeds.json"); os.IsNotExist(err) {

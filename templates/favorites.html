@@ -7,24 +7,252 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
-<body>
-    <div class="container">
-        <h1>FAVORITOS</h1>
-        <p><a href="/">← VOLVER AL LECTOR</a></p>
-        {{range .}}
-        <p class="article-line">
-            <span class="article-date">{{.Date}}</span>
-        <form action="/remove" method="POST" style="display:inline-block; margin: 0; padding: 0;">
-            <input type="hidden" name="link" value="{{.Link}}">
-            <button type="submit" class="star-button remove-button">✖</button>
-        </form>
-        <span class="article-source">{{.Source}}</span>
-        <a href="{{.Link}}" target="_blank">{{.Title}}</a>
-        </p>
-        {{else}}
-        <p>NO HAY FAVORITOS GUARDADOS.</p>
-        {{end}}
+<body class="favorites-page">
+    <div class="main-container">
+        <div class="header-container">
+            <h1>FAVORITOS</h1>
+            <div class="feed-actions">
+                <a href="/">← VOLVER AL LECTOR</a>
+            </div>
+        </div>
+        <br>
+
+    {{range .}}
+    <div class="article-line"
+        onclick="location.href='/article?title={{.Title}}&link={{.Link}}&date={{.Date}}&source={{.Source}}'">
+        <span class="star-button-container">
+            <button type="button" class="star-button remove-button star-favorite" data-link="{{.Link}}"
+                onclick="event.stopPropagation(); removeFavorite(this)">REMOVE</button>
+        </span><span class="article-date">{{.Date}}</span><span class="article-source">{{.Source}}</span><a
+            href="/article?title={{.Title}}&link={{.Link}}&date={{.Date}}&source={{.Source}}"
+            onclick="event.stopPropagation()">{{.Title}}</a>
     </div>
+    {{else}}
+    <p class="no-items">NO HAY FAVORITOS GUARDADOS.</p>
+    {{end}}
+
+    <!-- Keyboard shortcuts help -->
+    <div class="keyboard-shortcuts-help">
+        <button class="shortcuts-toggle" onclick="toggleShortcuts()">⌨️ ATAJOS</button>
+        <div class="shortcuts-content" id="shortcuts-content" style="display: none;">
+            <div class="shortcuts-grid">
+                <div class="shortcut-item">
+                    <span class="shortcut-key">J/↓</span>
+                    <span class="shortcut-desc">Navegar abajo</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">K/↑</span>
+                    <span class="shortcut-desc">Navegar arriba</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">ENTER</span>
+                    <span class="shortcut-desc">Abrir artículo</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">D</span>
+                    <span class="shortcut-desc">Eliminar favorito</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">H</span>
+                    <span class="shortcut-desc">Volver al lector</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">N</span>
+                    <span class="shortcut-desc">Agregar feed</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">I</span>
+                    <span class="shortcut-desc">Importar OPML</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">R</span>
+                    <span class="shortcut-desc">Recargar</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function removeFavorite(button) {
+            const link = button.dataset.link;
+
+            const formData = new URLSearchParams();
+            formData.append('link', link);
+
+            try {
+                const response = await fetch('/remove', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData.toString()
+                });
+
+                if (response.ok) {
+                    console.log('Artículo eliminado de favoritos.');
+                    // Remove the entire line from the DOM
+                    button.closest('.article-line').remove();
+                } else {
+                    console.error('Error al eliminar artículo:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error de red:', error);
+            }
+        }
+
+        function toggleShortcuts() {
+            const content = document.getElementById('shortcuts-content');
+            const button = document.querySelector('.shortcuts-toggle');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                button.textContent = '⌨️ OCULTAR ATAJOS';
+            } else {
+                content.style.display = 'none';
+                button.textContent = '⌨️ ATAJOS';
+            }
+        }
+
+        // Keyboard shortcuts similar to ANCAP
+        document.addEventListener('keydown', function(e) {
+            // Ignore if user is typing in an input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            switch(e.key.toLowerCase()) {
+                case 'h':
+                case 'arrowleft':
+                case 'escape':
+                    // Go back to home
+                    window.location.href = '/';
+                    break;
+                
+                case 'f':
+                    // Go to favorites
+                    window.location.href = '/favorites';
+                    break;
+                
+                case 'n':
+                    // Add new feed
+                    window.location.href = '/form';
+                    break;
+                
+                case 'i':
+                    // Import OPML
+                    window.location.href = '/import-opml';
+                    break;
+                
+                case 'j':
+                case 'arrowdown':
+                    // Navigate down in article list
+                    e.preventDefault();
+                    navigateArticles(1);
+                    break;
+                
+                case 'k':
+                case 'arrowup':
+                    // Navigate up in article list
+                    e.preventDefault();
+                    navigateArticles(-1);
+                    break;
+                
+                case 'enter':
+                case ' ':
+                    // Open selected article
+                    e.preventDefault();
+                    openSelectedArticle();
+                    break;
+                
+                case 'd':
+                case 'delete':
+                    // Remove selected favorite
+                    removeSelectedFavorite();
+                    break;
+                
+                case 'r':
+                    // Refresh the page
+                    window.location.reload();
+                    break;
+            }
+        });
+
+        let currentSelection = -1;
+
+        function navigateArticles(direction) {
+            const articles = document.querySelectorAll('.article-line');
+            if (articles.length === 0) return;
+            
+            // Remove previous selection
+            if (currentSelection >= 0 && currentSelection < articles.length) {
+                articles[currentSelection].classList.remove('keyboard-selected');
+            }
+            
+            // Update selection
+            currentSelection += direction;
+            
+            // Wrap around
+            if (currentSelection >= articles.length) {
+                currentSelection = 0;
+            } else if (currentSelection < 0) {
+                currentSelection = articles.length - 1;
+            }
+            
+            // Add new selection
+            articles[currentSelection].classList.add('keyboard-selected');
+            
+            // Scroll into view
+            articles[currentSelection].scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }
+
+        function openSelectedArticle() {
+            const articles = document.querySelectorAll('.article-line');
+            if (currentSelection >= 0 && currentSelection < articles.length) {
+                articles[currentSelection].click();
+            }
+        }
+
+        function removeSelectedFavorite() {
+            const articles = document.querySelectorAll('.article-line');
+            if (currentSelection >= 0 && currentSelection < articles.length) {
+                const button = articles[currentSelection].querySelector('.remove-button');
+                if (button) {
+                    button.click();
+                    // Update articles list after removal
+                    setTimeout(() => {
+                        const newArticles = document.querySelectorAll('.article-line');
+                        if (currentSelection >= newArticles.length) {
+                            currentSelection = newArticles.length - 1;
+                        }
+                    }, 100);
+                }
+            }
+        }
+        // Save navigation when clicking any article link
+        document.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A' && e.target.closest('.article-line')) {
+                const articles = document.querySelectorAll('.article-line');
+                const clickedArticle = e.target.closest('.article-line');
+                const clickedIndex = Array.from(articles).indexOf(clickedArticle);
+                
+                const articleList = Array.from(articles).map((article, index) => {
+                    const link = article.querySelector('a');
+                    return {
+                        url: link ? link.href : '',
+                        title: link ? link.textContent.trim() : '',
+                        index: index
+                    };
+                });
+                
+                sessionStorage.setItem('articleList', JSON.stringify(articleList));
+                sessionStorage.setItem('currentArticleIndex', clickedIndex.toString());
+            }
+        });
+    </script>
+    </div> <!-- main-container -->
 </body>
 
 </html>

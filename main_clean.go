@@ -9,17 +9,14 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/mmcdole/gofeed"
 )
 
 type Feed struct {
-	URL    string `json:"url"`
-	Active bool   `json:"active"`
+	URL string `json:"url"`
 }
 
 type Article struct {
@@ -79,22 +76,22 @@ func loadFeeds() []Feed {
 	return feeds
 }
 
-func saveFeed(feed Feed) error {
+func saveFeed(feed Feed) {
 	feeds := loadFeeds()
 	for _, f := range feeds {
 		if f.URL == feed.URL {
-			return nil
+			return
 		}
 	}
 	feeds = append(feeds, feed)
 
 	file, err := os.Create("feeds.json")
 	if err != nil {
-		return err
+		return
 	}
 	defer file.Close()
 
-	return json.NewEncoder(file).Encode(feeds)
+	json.NewEncoder(file).Encode(feeds)
 }
 
 func loadFavoriteArticles() []FavoriteArticle {
@@ -196,6 +193,12 @@ func fetchFeedArticles(feedURL string) []Article {
 	feed, err := fp.ParseURLWithContext(feedURL, ctx)
 	if err != nil {
 		log.Printf("❌ Error al acceder al feed %s: %v", feedURL, err)
+		if os.Getenv("HTTP_PROXY") != "" || os.Getenv("HTTPS_PROXY") != "" {
+			log.Printf("⚠️ Proxy configurado: HTTP_PROXY=%s, HTTPS_PROXY=%s", os.Getenv("HTTP_PROXY"), os.Getenv("HTTPS_PROXY"))
+		} else {
+			log.Printf("⚠️ No se detectó configuración de proxy.")
+		}
+		log.Printf("🔧 Verifique que el módulo github.com/mmcdole/gofeed esté instalado correctamente.")
 		return []Article{}
 	}
 
@@ -232,6 +235,7 @@ func fetchFeedArticles(feedURL string) []Article {
 
 func renderHomePage(w http.ResponseWriter, data TemplateData) {
 	log.Printf("🔍 Rendering home page with %d articles", len(data.Articles))
+	log.Printf("📋 Articles: %+v", data.Articles)
 
 	simpleHTML := `<!DOCTYPE html>
 <html lang="es">
@@ -362,7 +366,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             padding: 15px;
             cursor: pointer;
             display: flex;
-            justify-content: space-between;
+            justify-content: between;
             align-items: center;
             border-bottom: 1px solid #333;
         }
@@ -449,6 +453,11 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             text-decoration: underline;
         }
         
+        .favorites-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
         .status-message {
             background: #1a4a1a;
             color: #00ff00;
@@ -456,6 +465,25 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             border-radius: 3px;
             margin-bottom: 20px;
             border: 1px solid #2a5a2a;
+        }
+        
+        .keyboard-shortcuts {
+            background: #111;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border: 1px solid #333;
+        }
+        
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .shortcut-key {
+            color: #00ff00;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -486,8 +514,13 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 			description = description[:300] + "..."
 		}
 
+		favClass := ""
+		if article.IsFav {
+			favClass = "favorited"
+		}
+
 		simpleHTML += fmt.Sprintf(`
-            <div class="article" onclick="toggleArticle(this)">
+            <div class="article %s" onclick="toggleArticle(this)">
                 <div class="article-header">
                     <div class="article-info">
                         <div class="article-date">SAVE | %s</div>
@@ -504,6 +537,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     <a href="%s" target="_blank" class="article-link">Leer artículo completo →</a>
                 </div>
             </div>`,
+			favClass,
 			article.Date,
 			article.Title,
 			article.Source,
@@ -540,10 +574,26 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     <button type="submit">Agregar Feed</button>
                 </form>
             </div>
+            
+            <div class="keyboard-shortcuts">
+                <h4 style="color: #00ff00; margin-bottom: 10px;">Atajos de teclado:</h4>
+                <div class="shortcut">
+                    <span>Expandir/Contraer artículo</span>
+                    <span class="shortcut-key">ENTER</span>
+                </div>
+                <div class="shortcut">
+                    <span>Guardar en favoritos</span>
+                    <span class="shortcut-key">S</span>
+                </div>
+                <div class="shortcut">
+                    <span>Abrir enlace</span>
+                    <span class="shortcut-key">O</span>
+                </div>
+            </div>
         </div>
         
         <div id="favorites" class="tab-content">
-            <div id="favorites-content">
+            <div class="favorites-list" id="favorites-content">
                 <p style="color: #888;">Cargando favoritos...</p>
             </div>
         </div>
@@ -551,17 +601,23 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 
     <script>
         function showTab(tabName) {
+            // Ocultar todos los contenidos
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
             
+            // Quitar clase active de todas las pestañas
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
             
+            // Mostrar el contenido seleccionado
             document.getElementById(tabName).classList.add('active');
+            
+            // Marcar la pestaña como activa
             event.target.classList.add('active');
             
+            // Cargar favoritos si es necesario
             if (tabName === 'favorites') {
                 loadFavorites();
             }
@@ -585,6 +641,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             .then(response => response.text())
             .then(result => {
                 console.log('Favorito:', result);
+                // Actualizar interfaz si es necesario
             });
         }
         
@@ -613,6 +670,16 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     container.innerHTML = html;
                 });
         }
+        
+        // Atajos de teclado
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const focused = document.querySelector('.article:hover');
+                if (focused) {
+                    toggleArticle(focused);
+                }
+            }
+        });
     </script>
 </body>
 </html>`
@@ -622,167 +689,83 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 	log.Printf("✅ HTML rendered successfully with %d articles", len(data.Articles))
 }
 
-func parseOPML(content []byte) ([]string, error) {
-	log.Printf("🔍 Parsing OPML content, size: %d bytes", len(content))
+func parseOPML(data []byte) ([]string, error) {
+	var opml OPML
+	err := xml.Unmarshal(data, &opml)
+	if err != nil {
+		return nil, err
+	}
 
-	var feeds []string
-	var inOutline bool
-	var currentURL string
-
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-
-		if strings.Contains(line, "<outline") {
-			inOutline = true
-			currentURL = ""
-
-			// Buscar xmlUrl en la línea
-			if idx := strings.Index(line, "xmlUrl=\""); idx != -1 {
-				start := idx + 8
-				if end := strings.Index(line[start:], "\""); end != -1 {
-					currentURL = line[start : start+end]
-				}
+	var urls []string
+	for _, outline := range opml.Body.Outlines {
+		if outline.Type == "rss" && outline.XMLURL != "" {
+			urls = append(urls, outline.XMLURL)
+		}
+		for _, subOutline := range outline.Outlines {
+			if subOutline.Type == "rss" && subOutline.XMLURL != "" {
+				urls = append(urls, subOutline.XMLURL)
 			}
-
-			// Si la línea se cierra en la misma línea, procesar
-			if strings.Contains(line, "/>") || strings.Contains(line, "</outline>") {
-				if currentURL != "" && isValidURL(currentURL) {
-					feeds = append(feeds, currentURL)
-					log.Printf("✅ Found feed URL: %s", currentURL)
-				}
-				inOutline = false
-			}
-		} else if inOutline && strings.Contains(line, "</outline>") {
-			if currentURL != "" && isValidURL(currentURL) {
-				feeds = append(feeds, currentURL)
-				log.Printf("✅ Found feed URL: %s", currentURL)
-			}
-			inOutline = false
 		}
 	}
 
-	log.Printf("✅ Parsed OPML successfully, found %d feeds", len(feeds))
-	return feeds, nil
-}
-
-func isValidURL(urlStr string) bool {
-	if urlStr == "" {
-		return false
-	}
-	u, err := url.Parse(urlStr)
-	return err == nil && u.Scheme != "" && u.Host != ""
-}
-
-func getAllArticles() ([]Article, error) {
-	feeds := loadFeeds()
-	var allArticles []Article
-
-	for _, feed := range feeds {
-		if !feed.Active {
-			continue
-		}
-		articles := fetchFeedArticles(feed.URL)
-		allArticles = append(allArticles, articles...)
-	}
-
-	// Marcar favoritos
-	for i := range allArticles {
-		allArticles[i].IsFav = isArticleFavorite(allArticles[i].Link)
-	}
-
-	// Limitar a 50 artículos
-	if len(allArticles) > 50 {
-		allArticles = allArticles[:50]
-	}
-
-	return allArticles, nil
+	return urls, nil
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("🔄 Add handler called, method: %s", r.Method)
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var feedURLs []string
+	if file, _, err := r.FormFile("opml"); err == nil {
+		defer file.Close()
 
-	// Verificar si es un archivo OPML
-	if err := r.ParseMultipartForm(10 << 20); err == nil {
-		if file, _, err := r.FormFile("opml"); err == nil {
-			defer file.Close()
-
-			content, err := io.ReadAll(file)
-			if err != nil {
-				log.Printf("❌ Error reading OPML file: %v", err)
-				http.Error(w, "Error reading OPML file", http.StatusBadRequest)
-				return
-			}
-
-			urls, err := parseOPML(content)
-			if err != nil {
-				log.Printf("❌ Error parsing OPML: %v", err)
-				http.Error(w, "Error parsing OPML file", http.StatusBadRequest)
-				return
-			}
-
-			feedURLs = urls
-			log.Printf("✅ Extracted %d URLs from OPML", len(feedURLs))
-		}
-	}
-
-	// Si no es OPML, verificar URL individual
-	if len(feedURLs) == 0 {
-		feedURL := r.FormValue("feed_url")
-		if feedURL == "" {
-			log.Printf("❌ No feed URL or OPML file provided")
-			http.Error(w, "Feed URL or OPML file required", http.StatusBadRequest)
+		data, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, "Error reading file content", http.StatusInternalServerError)
 			return
 		}
-		feedURLs = []string{feedURL}
-	}
 
-	// Agregar cada feed
-	for _, feedURL := range feedURLs {
-		log.Printf("🔄 Processing feed URL: %s", feedURL)
+		urls, err := parseOPML(data)
+		if err != nil {
+			http.Error(w, "Error parsing OPML", http.StatusBadRequest)
+			return
+		}
 
-		feeds := loadFeeds()
-
-		// Verificar si ya existe
-		exists := false
-		for _, existingFeed := range feeds {
-			if existingFeed.URL == feedURL {
-				exists = true
-				break
+		count := 0
+		for _, url := range urls {
+			feed := Feed{URL: url}
+			feeds := loadFeeds()
+			exists := false
+			for _, f := range feeds {
+				if f.URL == url {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				saveFeed(feed)
+				count++
 			}
 		}
 
-		if !exists {
-			newFeed := Feed{
-				URL:    feedURL,
-				Active: true,
-			}
-
-			if err := saveFeed(newFeed); err != nil {
-				log.Printf("❌ Error saving feed %s: %v", feedURL, err)
-				continue
-			}
-
-			log.Printf("✅ Feed added successfully: %s", feedURL)
-		} else {
-			log.Printf("ℹ️ Feed already exists: %s", feedURL)
-		}
+		http.Redirect(w, r, fmt.Sprintf("/?imported=%d", count), http.StatusSeeOther)
+		return
 	}
 
-	// Redirigir de vuelta a la página principal
+	feedURL := r.FormValue("feed_url")
+	if feedURL == "" {
+		http.Error(w, "Feed URL is required", http.StatusBadRequest)
+		return
+	}
+
+	feed := Feed{URL: feedURL}
+	saveFeed(feed)
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func favoriteHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("⭐ Favorite handler called")
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -793,113 +776,109 @@ func favoriteHandler(w http.ResponseWriter, r *http.Request) {
 	date := r.FormValue("date")
 	source := r.FormValue("source")
 
-	if title == "" || link == "" {
-		log.Printf("❌ Missing required favorite data")
-		http.Error(w, "Title and link required", http.StatusBadRequest)
+	if link == "" {
+		http.Error(w, "Link is required", http.StatusBadRequest)
 		return
 	}
 
-	favorite := FavoriteArticle{
+	article := FavoriteArticle{
 		Title:  title,
 		Link:   link,
 		Date:   date,
 		Source: source,
 	}
 
-	favorites := loadFavoriteArticles()
+	isFav := isArticleFavorite(link)
 
-	// Verificar si ya existe
-	exists := false
-	for _, fav := range favorites {
-		if fav.Link == link {
-			exists = true
-			break
-		}
-	}
+	saveFavoriteArticle(article)
 
-	if !exists {
-		favorites = append(favorites, favorite)
-
-		favoritesJSON, err := json.MarshalIndent(favorites, "", "  ")
-		if err != nil {
-			log.Printf("❌ Error marshaling favorites: %v", err)
-			http.Error(w, "Error saving favorite", http.StatusInternalServerError)
-			return
-		}
-
-		if err := os.WriteFile("favorites.json", favoritesJSON, 0644); err != nil {
-			log.Printf("❌ Error saving favorites file: %v", err)
-			http.Error(w, "Error saving favorite", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("✅ Favorite added: %s", title)
-		w.Write([]byte("Added"))
+	if isFav {
+		w.Write([]byte("removed"))
 	} else {
-		log.Printf("ℹ️ Favorite already exists: %s", title)
-		w.Write([]byte("Already exists"))
+		w.Write([]byte("added"))
 	}
 }
 
 func apiFavoritesHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("📋 API favorites handler called")
+	favorites := loadFavoriteArticles()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(favorites)
+}
 
+func apiStatsHandler(w http.ResponseWriter, r *http.Request) {
+	feeds := loadFeeds()
 	favorites := loadFavoriteArticles()
 
+	stats := map[string]interface{}{
+		"totalFeeds":  len(feeds),
+		"activeFeeds": len(feeds),
+		"totalFavs":   len(favorites),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(favorites); err != nil {
-		log.Printf("❌ Error encoding favorites: %v", err)
-		http.Error(w, "Error loading favorites", http.StatusInternalServerError)
+	json.NewEncoder(w).Encode(stats)
+}
+
+func apiClearCacheHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	log.Printf("✅ Returned %d favorites", len(favorites))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
-func staticHandler(w http.ResponseWriter, r *http.Request) {
-	// Servir archivos estáticos
-	http.ServeFile(w, r, "."+r.URL.Path)
+func exportOPMLHandler(w http.ResponseWriter, r *http.Request) {
+	feeds := loadFeeds()
+
+	opml := OPML{
+		Version: "2.0",
+		Head: Head{
+			Title: "Libertarian RSS Feeds",
+		},
+		Body: Body{
+			Outlines: make([]Outline, len(feeds)),
+		},
+	}
+
+	for i, feed := range feeds {
+		opml.Body.Outlines[i] = Outline{
+			Text:    feed.URL,
+			Title:   feed.URL,
+			Type:    "rss",
+			XMLURL:  feed.URL,
+			HTMLURL: feed.URL,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/xml")
+	w.Header().Set("Content-Disposition", "attachment; filename=libertarian-feeds.opml")
+
+	xml.NewEncoder(w).Encode(opml)
 }
 
 func main() {
-		log.Println("🚀 Starting LIBERTARIAN 2.0 Server...")
-	log.Println("🌟 ¡LIBERTARIAN 2.0 optimizado!")
-	log.Println("📡 Servidor iniciado en http://localhost:8081")
-	log.Println("⚡ Funcionalidades activas:")
-	log.Println("   📰 RSS Reader con pestañas")
-	log.Println("   📁 Importador OPML")
-	log.Println("   ⭐ Sistema de favoritos")
-	log.Println("   🎨 JetBrains Mono font")
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	// Verificar que existan los archivos necesarios
-	if _, err := os.Stat("feeds.json"); os.IsNotExist(err) {
-		log.Printf("📝 Creating feeds.json with default feeds")
-		defaultFeeds := []Feed{
-			{URL: "https://feeds.feedburner.com/oreilly/radar", Active: true},
-			{URL: "https://rss.cnn.com/rss/edition.rss", Active: true},
-		}
-		feedsJSON, _ := json.MarshalIndent(defaultFeeds, "", "  ")
-		os.WriteFile("feeds.json", feedsJSON, 0644)
-	}
-
-	if _, err := os.Stat("favorites.json"); os.IsNotExist(err) {
-		log.Printf("📝 Creating empty favorites.json")
-		os.WriteFile("favorites.json", []byte("[]"), 0644)
-	}
-
-	// Configurar rutas
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/add", addHandler)
 	http.HandleFunc("/favorite", favoriteHandler)
 	http.HandleFunc("/api/favorites", apiFavoritesHandler)
-	http.HandleFunc("/static/", staticHandler)
+	http.HandleFunc("/api/stats", apiStatsHandler)
+	http.HandleFunc("/api/clear-cache", apiClearCacheHandler)
+	http.HandleFunc("/export-opml", exportOPMLHandler)
 
-	port := ":8081"
-	log.Printf("🌐 Server starting on http://localhost%s", port)
-	log.Printf("📡 Ready to serve RSS feeds with tabbed interface!")
-	log.Printf("✨ Features: OPML import, favorites, collapsible articles")
-
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("❌ Server failed to start: %v", err)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081"
 	}
+
+	fmt.Printf("\n🚀 LIBERTARIAN 2.0 RSS Server\n")
+	fmt.Printf("📡 Professional RSS Reader\n")
+	fmt.Printf("🌐 Server starting on http://localhost:%s\n", port)
+	fmt.Printf("✅ Ready to serve RSS feeds!\n\n")
+
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

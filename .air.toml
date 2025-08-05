@@ -5,19 +5,43 @@
 [build]
 # Command to build your Go application.
 # Default: go build -o <tmpdir>/main .
-cmd = "go build -o ./tmp/main ." # Using ./tmp for the build output
-
-# Arguments for the build command.
-# args = ["-tags", "netgo"]
+cmd = "go build -o ./tmp/main ." # Using ./tmp for the build output with .exe extension for Windows
 
 # Binary name.
 # bin = "tmp/main" # This assumes 'tmp' directory in your project root
+bin = "./tmp/main"
 
 # Path to watch for file changes.
 # Default: . (current directory)
 include_dir = [
     ".", # Watch the current directory
 ]
+
+# Files to include even if their directory is ignored.
+include_ext = ["go"]
+
+# Exclude these types of files.
+# exclude_ext = ["go", "md"]
+
+# Delay for file change detection in milliseconds.
+delay = 1000
+
+# Run 'air' in verbose mode.
+# Default: false
+# verbose = true
+
+[log]
+# Log level for air.
+# Options: trace, debug, info, warn, error, fatal
+level = "info"
+
+[server]
+# Command to run after build.
+# Default: <bin>
+cmd = "./tmp/main"
+
+# Port for the server.
+port = 8080
 
 # Paths to ignore for file changes.
 # This is where we'll add the BraveSoftware path.
@@ -32,20 +56,5 @@ ignore_dir = [
     # "/Users/libertarian.one/Library/Application Support/Bitcoin",
 ]
 
-# Files to include even if their directory is ignored.
-# include_ext = ["go", "tpl", "tmpl", "html", "css", "js", "json"]
-
-# Exclude these types of files.
-# exclude_ext = ["go", "md"]
-
-# Run 'air' in verbose mode.
-# Default: false
-# verbose = true
-
-# [run]
-# # Command to run after build.
-# # Default: <bin>
-# cmd = "./tmp/main"
-
-# # Env variables for the run command.
-# # env = ["PORT=3000"]
+# Directories to exclude from watching.
+exclude_dir = ["static", "templates", "tmp"]

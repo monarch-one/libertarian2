@@ -4,5 +4,29 @@
     "link": "https://www.reddit.com/r/golang/comments/1lp3e6p/whos_hiring_july_2025/",
     "date": "01/07/2025",
     "source": "The Go Programming Language"
+  },
+  {
+    "title": "Frequently Asked Questions",
+    "link": "https://www.reddit.com/r/golang/comments/1hb5zz7/frequently_asked_questions/",
+    "date": "10/12/2024",
+    "source": "The Go Programming Language"
+  },
+  {
+    "title": "Go 1.24.5 is released",
+    "link": "https://www.reddit.com/r/golang/comments/1luvict/go_1245_is_released/",
+    "date": "08/07/2025",
+    "source": "The Go Programming Language"
+  },
+  {
+    "title": "Memory used by golang's interfaces",
+    "link": "https://www.reddit.com/r/golang/comments/1lvfcm5/memory_used_by_golangs_interfaces/",
+    "date": "09/07/2025",
+    "source": "The Go Programming Language"
+  },
+  {
+    "title": "Grounded",
+    "link": "https://xkcd.com/3124/",
+    "date": "2025-08-04 04:00",
+    "source": "xkcd.com"
   }
 ]
