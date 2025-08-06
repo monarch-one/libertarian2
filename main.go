@@ -551,9 +551,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     'position: absolute; left: 15px; top: 15px; text-align: left;';
                 
                 const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                    '<div id="saved-btn-' + index + '" onclick="toggleSaved(' + index + ', event)" style="color: ' + (article.isSaved ? '#FFD700' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isSaved ? '[SAVED]' : '[SAVE]') + '</div>' +
-                    '<div id="loved-btn-' + index + '" onclick="toggleLoved(' + index + ')" style="color: ' + (article.isLoved ? '#FF69B4' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isLoved ? '[LOVED]' : '[LOVE]') + '</div>' +
-                    '<div onclick="shareArticle(' + index + ')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[SHARE]</div>' +
+                    '<div id="saved-btn-' + index + '" onclick="toggleSaved(' + index + ', event)" style="color: ' + (article.isSaved ? '#FFD700' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isSaved ? '[GUARDADO]' : '[GUARDAR]') + '</div>' +
+                    '<div id="loved-btn-' + index + '" onclick="toggleLoved(' + index + ')" style="color: ' + (article.isLoved ? '#FF69B4' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isLoved ? '[FAVORITO]' : '[MARCAR FAV]') + '</div>' +
+                    '<div onclick="shareArticle(' + index + ')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[COMPARTIR]</div>' +
                     '</div>';
                 
                 // Extraer y procesar imágenes del contenido original (sin limpiar)
@@ -866,10 +866,10 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             const source = metaParts[1] || '';
             
             setTimeout(() => {
-                // Limpiar la descripción de HTML tags
+                // Limpiar la descripción de etiquetas HTML
                 let cleanDescription = description || 'Contenido no disponible. Haz doble clic en la línea para ver el artículo completo.';
-                cleanDescription = cleanDescription.replace(/<[^>]*>/g, ''); // Quitar HTML tags
-                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' '); // Quitar HTML entities
+                cleanDescription = cleanDescription.replace(/<[^>]*>/g, ''); // Quitar etiquetas HTML
+                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' '); // Quitar entidades HTML
                 cleanDescription = cleanDescription.trim();
                 
                 // Truncar si es muy largo
@@ -886,15 +886,15 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     'position: absolute; left: 15px; top: 15px; text-align: left;';
                 
                 const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                    '<div onclick="toggleSavedByLink(\'' + link + '\')" style="color: #FFD700; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[SAVED]</div>' +
-                    '<div onclick="toggleLovedByLink(\'' + link + '\')" style="color: #FF69B4; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[LOVED]</div>' +
-                    '<div onclick="shareArticleByLink(\'' + link + '\')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[SHARE]</div>' +
+                    '<div onclick="toggleSavedByLink(\'' + link + '\')" style="color: #FFD700; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[GUARDADO]</div>' +
+                    '<div onclick="toggleLovedByLink(\'' + link + '\')" style="color: #FF69B4; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[FAVORITO]</div>' +
+                    '<div onclick="shareArticleByLink(\'' + link + '\')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[COMPARTIR]</div>' +
                     '</div>';
                 
-                // NO mostrar imágenes en saved/loved para evitar imágenes rotas
+                // NO mostrar imágenes en guardados/favoritos para evitar imágenes rotas
                 // Las imágenes solo están disponibles en la vista principal de feeds
                 let imageHTML = '';
-                // Solo mostrar imágenes si estamos en la vista de feeds (no en saved/loved)
+                // Solo mostrar imágenes si estamos en la vista de feeds (no en guardados/favoritos)
                 // donde tenemos la descripción completa
                 
                 // Ajustar padding según posición de botones
@@ -952,36 +952,36 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             const article = articles[index];
             const button = document.getElementById('saved-btn-' + index);
             
-            // Toggle estado (simulado - aquí harías fetch al servidor)
+            // Alternar estado (simulado - aquí harías fetch al servidor)
             article.isSaved = !article.isSaved;
             
             if (button) {
-                button.textContent = article.isSaved ? '[SAVED]' : '[SAVE]';
+                button.textContent = article.isSaved ? '[GUARDADO]' : '[GUARDAR]';
                 button.style.color = article.isSaved ? '#FFD700' : '#00ff00';
             }
             
-            // Actualizar lista de saved
+            // Actualizar lista de guardados
             updateSavedList();
             
-            console.log('Toggled saved for:', article.title);
+            console.log('Alternado guardado para:', article.title);
         }
         
         function toggleLoved(index) {
             const article = articles[index];
             const button = document.getElementById('loved-btn-' + index);
             
-            // Toggle estado (simulado - aquí harías fetch al servidor)
+            // Alternar estado (simulado - aquí harías fetch al servidor)
             article.isLoved = !article.isLoved;
             
             if (button) {
-                button.textContent = article.isLoved ? '[LOVED]' : '[LOVE]';
+                button.textContent = article.isLoved ? '[FAVORITO]' : '[MARCAR FAV]';
                 button.style.color = article.isLoved ? '#FF69B4' : '#00ff00';
             }
             
-            // Actualizar lista de loved
+            // Actualizar lista de favoritos
             updateLovedList();
             
-            console.log('Toggled loved for:', article.title);
+            console.log('Alternado favorito para:', article.title);
         }
         
         function updateLovedList() {
@@ -1000,9 +1000,11 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 let listHTML = '';
                 lovedArticles.forEach((article, index) => {
                     const contentId = 'content-loved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
+                    // Remover imágenes de la descripción para evitar problemas visuales
+                    let cleanDescription = (article.description || '').replace(/<img[^>]*>/g, '');
                     listHTML += '<div class="article-container">' +
                                '<div class="article-line">' +
-                               '<span class="full-line-link" data-link="' + article.link + '" data-description="' + (article.description || '') + '">' +
+                               '<span class="full-line-link" data-link="' + article.link + '" data-description="' + cleanDescription + '">' +
                                '<span class="meta">' + article.date + ' | ' + article.source + ' | </span>' +
                                '<span class="title">' + article.title + '</span>' +
                                '</span>' +
@@ -1030,9 +1032,11 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 let listHTML = '';
                 savedArticles.forEach((article, index) => {
                     const contentId = 'content-saved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
+                    // Remover imágenes de la descripción para evitar problemas visuales
+                    let cleanDescription = (article.description || '').replace(/<img[^>]*>/g, '');
                     listHTML += '<div class="article-container">' +
                                '<div class="article-line">' +
-                               '<span class="full-line-link" data-link="' + article.link + '" data-description="' + (article.description || '') + '">' +
+                               '<span class="full-line-link" data-link="' + article.link + '" data-description="' + cleanDescription + '">' +
                                '<span class="meta">' + article.date + ' | ' + article.source + ' | </span>' +
                                '<span class="title">' + article.title + '</span>' +
                                '</span>' +
@@ -1045,14 +1049,14 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         
         function removeLoved(articleLink) {
-            // Encontrar y quitar de loved
+            // Encontrar y quitar de favoritos
             articles.forEach(article => {
                 if (article.link === articleLink) {
                     article.isLoved = false;
                     // Actualizar botón si existe
                     const button = document.getElementById('loved-btn-' + articles.indexOf(article));
                     if (button) {
-                        button.textContent = '[LOVE]';
+                        button.textContent = '[MARCAR FAV]';
                         button.style.color = '#00ff00';
                     }
                 }
@@ -1061,14 +1065,14 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         
         function removeSaved(articleLink) {
-            // Encontrar y quitar de saved
+            // Encontrar y quitar de guardados
             articles.forEach(article => {
                 if (article.link === articleLink) {
                     article.isSaved = false;
                     // Actualizar botón si existe
                     const button = document.getElementById('saved-btn-' + articles.indexOf(article));
                     if (button) {
-                        button.textContent = '[SAVE]';
+                        button.textContent = '[GUARDAR]';
                         button.style.color = '#00ff00';
                     }
                 }
@@ -1230,8 +1234,8 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         <h1>LIBERTARIAN 2.0</h1>
         <div class="tabs">
             <a class="tab tab-active" href="#" onclick="showPage('feeds', event)">FEEDS <span id="feeds-count"></span> <span class="tab-shortcut">(F1)</span></a>
-            <a class="tab" href="#" onclick="showPage('saved', event)">SAVED <span id="saved-count"></span> <span class="tab-shortcut">(F2)</span></a>
-            <a class="tab" href="#" onclick="showPage('loved', event)">LOVED <span id="loved-count"></span> <span class="tab-shortcut">(F3)</span></a>
+            <a class="tab" href="#" onclick="showPage('saved', event)">GUARDADOS <span id="saved-count"></span> <span class="tab-shortcut">(F2)</span></a>
+            <a class="tab" href="#" onclick="showPage('loved', event)">FAVORITOS <span id="loved-count"></span> <span class="tab-shortcut">(F3)</span></a>
             <a class="tab" href="#" onclick="showPage('config', event)">CONFIG <span class="tab-shortcut">(F4)</span></a>
         </div>
         <div class="info">` + time.Now().Format("02/01/2006 15:04") + ` | ` + fmt.Sprintf("%d artículos cargados", len(data.Articles)) + `</div>
