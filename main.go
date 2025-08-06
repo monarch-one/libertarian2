@@ -222,7 +222,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANCAP WEB - ` + time.Now().Format("15:04:05") + ` [AIR]</title>
+    <title>ANCAP - ` + time.Now().Format("15:04:05") + ` [v2.1]</title>
     <style>
         @font-face {
             font-family: 'JetBrains Mono';
@@ -259,10 +259,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             left: 0;
             width: 100%;
             height: 100%;
-            background: #000;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
             color: #00ff00;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 9999;
@@ -273,19 +272,21 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             display: none;
         }
         
-        .loading-brand {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #00ff00;
+        .loading-content {
             text-align: center;
+            max-width: 90%;
         }
         
-        .loading-subtitle {
-            font-size: 16px;
-            color: #888;
-            margin-bottom: 30px;
+        .loading-brand {
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #00ff00;
             text-align: center;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            line-height: 1.0;
+            text-shadow: 0 0 10px #00ff00;
         }
         
         .loading-text {
@@ -308,6 +309,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             background: #00ff00;
             width: 0%;
             transition: width 0.3s ease;
+            box-shadow: 0 0 10px #00ff00;
         }
         
         .loading-dots::after {
@@ -561,6 +563,68 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         let selectedIndex = -1;
         const articles = [];
         
+        // Mostrar loading screen
+        function showLoadingScreen() {
+            const loadingScreen = document.getElementById('loading-screen');
+            if (loadingScreen) {
+                loadingScreen.classList.remove('hidden');
+                simulateLoading();
+            }
+        }
+        
+        // Simular carga progresiva
+        function simulateLoading() {
+            const progressBar = document.querySelector('.loading-progress');
+            const loadingText = document.querySelector('.loading-text');
+            
+            const steps = [
+                { progress: 20, text: 'INICIANDO ANCAP' },
+                { progress: 40, text: 'CARGANDO FEEDS RSS' },
+                { progress: 60, text: 'PROCESANDO ARTÍCULOS' },
+                { progress: 80, text: 'PREPARANDO INTERFAZ' },
+                { progress: 100, text: 'LISTO' }
+            ];
+            
+            let currentStep = 0;
+            
+            function updateProgress() {
+                if (currentStep < steps.length) {
+                    const step = steps[currentStep];
+                    progressBar.style.width = step.progress + '%';
+                    loadingText.innerHTML = step.text + '<span class="loading-dots"></span>';
+                    
+                    currentStep++;
+                    setTimeout(updateProgress, 300);
+                } else {
+                    setTimeout(hideLoadingScreen, 500);
+                }
+            }
+            
+            updateProgress();
+        }
+        
+        // Ocultar loading screen
+        function hideLoadingScreen() {
+            console.log('hideLoadingScreen iniciada');
+            const loadingScreen = document.getElementById('loading-screen');
+            
+            if (loadingScreen) {
+                console.log('Ocultando loading screen...');
+                loadingScreen.style.display = 'none';
+                
+                // Mostrar container principal inmediatamente
+                const container = document.querySelector('.container');
+                if (container) {
+                    container.style.display = 'flex';
+                    console.log('Container mostrado');
+                }
+                
+                console.log('Loading screen ocultada exitosamente');
+            } else {
+                console.error('Loading screen no encontrada');
+            }
+        }
+        
         function toggleArticle(index, event) {
             if (event) {
                 // Si es doble clic o Ctrl+clic, abrir enlace
@@ -589,20 +653,6 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 if (!content.innerHTML.trim() || content.innerHTML === 'Cargando contenido...') {
                     loadArticleContent(index);
                 }
-            }
-        }       } else {
-                    setTimeout(hideLoadingScreen, 500);
-                }
-            }
-            
-            updateProgress();
-        }
-        
-        // Ocultar loading screen
-        function hideLoadingScreen() {
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-                loadingScreen.classList.add('hidden');
             }
         }
         
@@ -1401,6 +1451,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         
         function showPage(pageName, event) {
+            console.log('showPage llamada con:', pageName, event);
             if (event) {
                 event.preventDefault();
             }
@@ -1409,6 +1460,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             const contentIds = ['feeds-content', 'import-content', 'saved-content', 'loved-content', 'config-content'];
             contentIds.forEach(id => {
                 const element = document.getElementById(id);
+                console.log('Elemento', id, ':', element);
                 if (element) element.style.display = 'none';
             });
             
@@ -1419,8 +1471,12 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             
             // Mostrar el contenido solicitado
             const targetContent = document.getElementById(pageName + '-content');
+            console.log('Target content para', pageName + '-content', ':', targetContent);
             if (targetContent) {
                 targetContent.style.display = 'block';
+                console.log('Contenido mostrado para:', pageName);
+            } else {
+                console.error('No se encontró el contenido para:', pageName + '-content');
             }
             
             // Activar la pestaña correspondiente
@@ -1432,6 +1488,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 tabs.forEach(tab => {
                     if (tab.textContent.toLowerCase().includes(pageName.toLowerCase())) {
                         tab.classList.add('tab-active');
+                        console.log('Tab activada:', tab.textContent);
                     }
                 });
             }
@@ -1514,16 +1571,28 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 <body>
     <!-- Pantalla de carga -->
     <div id="loading-screen" class="loading-screen">
-        <div class="loading-brand">ANCAP WEB</div>
-        <div class="loading-subtitle">&lt;A LIBERTARIAN RSS READER&gt;</div>
-        <div class="loading-text">LOADING<span class="loading-dots"></span></div>
-        <div class="loading-bar">
-            <div class="loading-progress"></div>
+        <div class="loading-content">
+            <div class="loading-brand">
+▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
+█▀█ █ ▀█ █▄▄ █▀█ █▀▀
+
+» A LIBERTARIAN RSS READER «
+            </div>
+            <div class="loading-text">CARGANDO ANCAP<span class="loading-dots"></span></div>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
         </div>
     </div>
     
     <div class="container">
-        <h1>ANCAP WEB <span style="color: #888; font-size: 12px;">A LIBERTARIAN RSS READER</span></h1>
+        <div class="main-header">
+            <div class="ascii-logo">
+▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
+█▀█ █ ▀█ █▄▄ █▀█ █▀▀
+            </div>
+            <div class="subtitle">» A LIBERTARIAN RSS READER «</div>
+        </div>
         <div class="tabs">
             <a class="tab tab-active" href="#" onclick="showPage('feeds', event)">FEEDS <span id="feeds-count"></span> <span class="tab-shortcut">(F1)</span></a>
             <a class="tab" href="#" onclick="showPage('saved', event)">GUARDADOS <span id="saved-count"></span> <span class="tab-shortcut">(F2)</span></a>
