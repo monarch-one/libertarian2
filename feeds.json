@@ -1,191 +1,66 @@
+
 [
-  {
-    "url": "https://xkcd.com/rss.xml"
-  },
-  {
-    "url": "https://www.reddit.com/r/golang/.rss"
-  },
-  {
-    "url": "https://news.ycombinator.com/rss"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCKONdcQCTP3aozARj1ntKhw"
-  },
-  {
-    "url": "http://www.genbeta.com/index.xml"
-  },
-  {
-    "url": "http://hnrss.org/newest?points=100"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCQJWtTnAHhEG5w4uN0udnUQ"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC_vz6SvmIkYs1_H3Wv2SKlg"
-  },
-  {
-    "url": "https://www.hollywoodreporter.com/c/tv/feed/"
-  },
-  {
-    "url": "http://www.firstshowing.net/feed/"
-  },
-  {
-    "url": "http://tvseriesfinale.com/feed/"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC1Myj674wRVXB9I4c6Hm5zA"
-  },
-  {
-    "url": "http://www.seriemaniac.com/feed/"
-  },
-  {
-    "url": "http://feeds.feedburner.com/cinesargentinos-pelis"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWOA1ZGywLbqmigxE4Qlvuw"
-  },
-  {
-    "url": "https://yts.mx/rss"
-  },
-  {
-    "url": "http://showrss.info/other/shows.rss"
-  },
-  {
-    "url": "http://whats-on-netflix.com/feed/"
-  },
-  {
-    "url": "http://showrss.info/user/22386.rss?magnets=true\u0026namespaces=true\u0026name=null\u0026quality=null\u0026re=null"
-  },
-  {
-    "url": "http://www.comingsoon.net/tv/feed"
-  },
-  {
-    "url": "http://www.guardian.co.uk/world/privacy/rss"
-  },
-  {
-    "url": "https://whispersystems.org/blog/rss.xml"
-  },
-  {
-    "url": "https://blog.brave.com/rss/"
-  },
-  {
-    "url": "https://news.google.com/news/rss/search/section/q/new%20rss%20reader/new%20rss%20reader?ned=us"
-  },
-  {
-    "url": "https://mullvad.net/en/news.atom"
-  },
-  {
-    "url": "https://proton.me/blog/feed"
-  },
-  {
-    "url": "https://protonvpn.com/blog/feed/"
-  },
-  {
-    "url": "https://reclaimthenet.org/feed/"
-  },
-  {
-    "url": "https://cryptomator.org/feed.xml"
-  },
-  {
-    "url": "https://discuss.techlore.tech/c/privacy-and-security/news/14.rss"
-  },
-  {
-    "url": "https://bitwarden.com/blog/feed.xml"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCY1kMZp36IQSyNx_9h4mpCg"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCs6KfncB4OV6Vug4o_bzijg"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC0W_BIuwk8D0Bv4THbVZZOQ"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC3g-w83Cb5pEAu5UmRrge-A"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC3MUasaF6C_uyCbxYE5UTVA"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6107grRI4m0o2-emgoDnAA"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCHnyfMqiRRG1u-2MsSQLbXA"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFbtcTaMFnOAP0pFO1L8hVw"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCH5DsMZAgdx5Fkk9wwMNwCA"
-  },
-  {
-    "url": "http://gdata.youtube.com/feeds/base/users/freedrumlessons/uploads?alt=rss\u0026v=2\u0026orderby=published\u0026client=ytapi-youtube-profile"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCsXVk37bltHxD1rDPwtNM8Q"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCy1hU4eDUdoPy_ez4oXZD0w"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCSuHzQ3GrHSzoBbwrIq3LLA"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCqK_GSMbpiV8spgD3ZGloSw"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC7DdEm33SyaTDtWYGO2CwdA"
-  },
-  {
-    "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCw--xPGVVxYzRsWyV1nFqgg"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XY7EXQV9RE9KQ3JYE0WZ9/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01JBQ6PW20207W4RPSM5X4192B/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYCPSY3C4BNPBRY8JMCBE/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYCRVY3QGYAMRR3STW941/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYHBSA35Y18Q86HDY7MJ4/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XY7E9FNDZ1DBBM6PBJPFK/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYDNXNEJ72V8B63390CNT/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYD0XH1J0G4V7D03A4G04/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYFD97DRQQKK75FZB7PQH/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XYERPHPGCM3C3HEME1YAK/rss"
-  },
-  {
-    "url": "https://weebcentral.com/series/01J76XY7KT7J224EBK6J816Y1Q/rss"
-  },
-  {
-    "url": "http://feeds.feedburner.com/AnimeFLV"
-  },
-  {
-    "url": "https://somoskudasai.com/feed/"
-  },
-  {
-    "url": "http://www.matuk.com/feed/"
-  },
-  {
-    "url": "http://www.engadget.com/rss-full.xml"
-  },
-  {
-    "url": "http://editorial.rottentomatoes.com/feed/"
-  }
+  {"url": "https://xkcd.com/rss.xml", "Active": true},
+  {"url": "https://www.reddit.com/r/golang/.rss", "Active": true},
+  {"url": "https://news.ycombinator.com/rss", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCKONdcQCTP3aozARj1ntKhw", "Active": true},
+  {"url": "http://www.genbeta.com/index.xml", "Active": true},
+  {"url": "http://hnrss.org/newest?points=100", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCQJWtTnAHhEG5w4uN0udnUQ", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC_vz6SvmIkYs1_H3Wv2SKlg", "Active": true},
+  {"url": "https://www.hollywoodreporter.com/c/tv/feed/", "Active": true},
+  {"url": "http://www.firstshowing.net/feed/", "Active": true},
+  {"url": "http://tvseriesfinale.com/feed/", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC1Myj674wRVXB9I4c6Hm5zA", "Active": true},
+  {"url": "http://www.seriemaniac.com/feed/", "Active": true},
+  {"url": "http://feeds.feedburner.com/cinesargentinos-pelis", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWOA1ZGywLbqmigxE4Qlvuw", "Active": true},
+  {"url": "https://yts.mx/rss", "Active": true},
+  {"url": "http://showrss.info/other/shows.rss", "Active": true},
+  {"url": "http://whats-on-netflix.com/feed/", "Active": true},
+  {"url": "http://showrss.info/user/22386.rss?magnets=true&namespaces=true&name=null&quality=null&re=null", "Active": true},
+  {"url": "http://www.comingsoon.net/tv/feed", "Active": true},
+  {"url": "http://www.guardian.co.uk/world/privacy/rss", "Active": true},
+  {"url": "https://whispersystems.org/blog/rss.xml", "Active": true},
+  {"url": "https://blog.brave.com/rss/", "Active": true},
+  {"url": "https://news.google.com/news/rss/search/section/q/new%20rss%20reader/new%20rss%20reader?ned=us", "Active": true},
+  {"url": "https://mullvad.net/en/news.atom", "Active": true},
+  {"url": "https://proton.me/blog/feed", "Active": true},
+  {"url": "https://protonvpn.com/blog/feed/", "Active": true},
+  {"url": "https://reclaimthenet.org/feed/", "Active": true},
+  {"url": "https://cryptomator.org/feed.xml", "Active": true},
+  {"url": "https://discuss.techlore.tech/c/privacy-and-security/news/14.rss", "Active": true},
+  {"url": "https://bitwarden.com/blog/feed.xml", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCY1kMZp36IQSyNx_9h4mpCg", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCs6KfncB4OV6Vug4o_bzijg", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC0W_BIuwk8D0Bv4THbVZZOQ", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC3g-w83Cb5pEAu5UmRrge-A", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC3MUasaF6C_uyCbxYE5UTVA", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6107grRI4m0o2-emgoDnAA", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCHnyfMqiRRG1u-2MsSQLbXA", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFbtcTaMFnOAP0pFO1L8hVw", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCH5DsMZAgdx5Fkk9wwMNwCA", "Active": true},
+  {"url": "http://gdata.youtube.com/feeds/base/users/freedrumlessons/uploads?alt=rss&v=2&orderby=published&client=ytapi-youtube-profile", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCsXVk37bltHxD1rDPwtNM8Q", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCy1hU4eDUdoPy_ez4oXZD0w", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCSuHzQ3GrHSzoBbwrIq3LLA", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCqK_GSMbpiV8spgD3ZGloSw", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC7DdEm33SyaTDtWYGO2CwdA", "Active": true},
+  {"url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCw--xPGVVxYzRsWyV1nFqgg", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XY7EXQV9RE9KQ3JYE0WZ9/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01JBQ6PW20207W4RPSM5X4192B/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYCPSY3C4BNPBRY8JMCBE/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYCRVY3QGYAMRR3STW941/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYHBSA35Y18Q86HDY7MJ4/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XY7E9FNDZ1DBBM6PBJPFK/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYDNXNEJ72V8B63390CNT/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYD0XH1J0G4V7D03A4G04/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYFD97DRQQKK75FZB7PQH/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XYERPHPGCM3C3HEME1YAK/rss", "Active": true},
+  {"url": "https://weebcentral.com/series/01J76XY7KT7J224EBK6J816Y1Q/rss", "Active": true},
+  {"url": "http://feeds.feedburner.com/AnimeFLV", "Active": true},
+  {"url": "https://somoskudasai.com/feed/", "Active": true},
+  {"url": "http://www.matuk.com/feed/", "Active": true},
+  {"url": "http://www.engadget.com/rss-full.xml", "Active": true},
+  {"url": "http://editorial.rottentomatoes.com/feed/", "Active": true}
 ]
