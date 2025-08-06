@@ -558,23 +558,30 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 
                 // Extraer y procesar imágenes del contenido original (sin limpiar)
                 let imageHTML = '';
-                const imgRegex = /<img[^>]+src=["\']([^"\']+)["\'][^>]*>/gi;
-                let match;
                 const originalDescription = article.description || '';
                 
-                // Buscar múltiples imágenes
-                const images = [];
-                while ((match = imgRegex.exec(originalDescription)) !== null && images.length < 3) {
-                    images.push(match[1]);
-                }
-                
-                // Generar HTML para imágenes
-                if (images.length > 0) {
-                    imageHTML = '<div style="margin-bottom: 15px; text-align: center;">';
-                    images.forEach(imgSrc => {
-                        imageHTML += '<img src="' + imgSrc + '" style="max-width: 150px; max-height: 100px; margin: 5px; border: 1px solid #333; object-fit: cover;" onerror="this.style.display=\'none\'" onload="console.log(\'Imagen cargada: \' + this.src)">';
-                    });
-                    imageHTML += '</div>';
+                if (originalDescription && originalDescription.trim().length > 0) {
+                    const imgRegex = /<img[^>]+src=["\']([^"\']+)["\'][^>]*>/gi;
+                    let match;
+                    
+                    // Buscar múltiples imágenes
+                    const images = [];
+                    while ((match = imgRegex.exec(originalDescription)) !== null && images.length < 3) {
+                        // Validar que la URL de la imagen sea válida
+                        const imgSrc = match[1];
+                        if (imgSrc && (imgSrc.startsWith('http://') || imgSrc.startsWith('https://') || imgSrc.startsWith('//'))) {
+                            images.push(imgSrc);
+                        }
+                    }
+                    
+                    // Generar HTML para imágenes solo si hay imágenes válidas
+                    if (images.length > 0) {
+                        imageHTML = '<div style="margin-bottom: 15px; text-align: center;">';
+                        images.forEach(imgSrc => {
+                            imageHTML += '<img src="' + imgSrc + '" style="max-width: 150px; max-height: 100px; margin: 5px; border: 1px solid #333; object-fit: cover; display: none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'inline-block\'; console.log(\'Imagen cargada: \' + this.src)">';
+                        });
+                        imageHTML += '</div>';
+                    }
                 }
                 
                 // Ajustar padding según posición de botones
@@ -597,14 +604,19 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             const activePage = document.querySelector('.page-content[style*="display: block"]').id.replace('-content', '');
             
             let totalArticles;
+            let articleContainers;
             if (activePage === 'feeds') {
-                totalArticles = document.querySelectorAll('#feeds-content .article-container').length;
+                articleContainers = document.querySelectorAll('#feeds-content .article-container');
+                totalArticles = articleContainers.length;
             } else if (activePage === 'saved') {
-                totalArticles = document.querySelectorAll('#saved-articles-list .article-container').length;
+                articleContainers = document.querySelectorAll('#saved-articles-list .article-container');
+                totalArticles = articleContainers.length;
             } else if (activePage === 'loved') {
-                totalArticles = document.querySelectorAll('#loved-articles-list .article-container').length;
+                articleContainers = document.querySelectorAll('#loved-articles-list .article-container');
+                totalArticles = articleContainers.length;
             } else {
                 totalArticles = 0;
+                articleContainers = [];
             }
             
             const expandedArticle = document.querySelector('.article-content.expanded');
@@ -617,8 +629,20 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             switch(event.code) {
                 case 'Space':
                     event.preventDefault();
-                    if (selectedIndex >= 0) {
-                        toggleArticle(selectedIndex);
+                    if (selectedIndex >= 0 && totalArticles > 0) {
+                        // Expandir artículo según la página
+                        if (activePage === 'feeds') {
+                            toggleArticle(selectedIndex);
+                        } else if (activePage === 'saved' || activePage === 'loved') {
+                            // Para saved/loved necesitamos usar un ID único basado en el link
+                            const container = articleContainers[selectedIndex];
+                            if (container) {
+                                const link = container.querySelector('.full-line-link').getAttribute('data-link');
+                                const prefix = activePage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
+                                toggleArticleGeneric(container, contentId, link);
+                            }
+                        }
                     }
                     break;
                     
@@ -665,22 +689,60 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     
                 case 'Enter':
                     event.preventDefault();
-                    if (selectedIndex >= 0) {
-                        window.open(articles[selectedIndex].link, '_blank');
+                    if (selectedIndex >= 0 && totalArticles > 0) {
+                        // Obtener el enlace según la página
+                        let link;
+                        if (activePage === 'feeds') {
+                            link = articles[selectedIndex].link;
+                        } else if (activePage === 'saved' || activePage === 'loved') {
+                            const container = articleContainers[selectedIndex];
+                            if (container) {
+                                link = container.querySelector('.full-line-link').getAttribute('data-link');
+                            }
+                        }
+                        if (link) {
+                            window.open(link, '_blank');
+                        }
                     }
                     break;
                     
                 case 'KeyS':
                     event.preventDefault();
-                    if (selectedIndex >= 0) {
-                        toggleSaved(selectedIndex);
+                    if (selectedIndex >= 0 && totalArticles > 0) {
+                        // Obtener el artículo actual según la página
+                        if (activePage === 'feeds') {
+                            toggleSaved(selectedIndex);
+                        } else if (activePage === 'saved' || activePage === 'loved') {
+                            // Para saved/loved, obtenemos el artículo del DOM
+                            const container = articleContainers[selectedIndex];
+                            if (container) {
+                                const link = container.querySelector('.full-line-link').getAttribute('data-link');
+                                const originalIndex = articles.findIndex(a => a.link === link);
+                                if (originalIndex >= 0) {
+                                    toggleSaved(originalIndex);
+                                }
+                            }
+                        }
                     }
                     break;
                     
                 case 'KeyL':
                     event.preventDefault();
-                    if (selectedIndex >= 0) {
-                        toggleLoved(selectedIndex);
+                    if (selectedIndex >= 0 && totalArticles > 0) {
+                        // Obtener el artículo actual según la página
+                        if (activePage === 'feeds') {
+                            toggleLoved(selectedIndex);
+                        } else if (activePage === 'saved' || activePage === 'loved') {
+                            // Para saved/loved, obtenemos el artículo del DOM
+                            const container = articleContainers[selectedIndex];
+                            if (container) {
+                                const link = container.querySelector('.full-line-link').getAttribute('data-link');
+                                const originalIndex = articles.findIndex(a => a.link === link);
+                                if (originalIndex >= 0) {
+                                    toggleLoved(originalIndex);
+                                }
+                            }
+                        }
                     }
                     break;
                     
@@ -743,13 +805,142 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             // Agregar highlight al seleccionado
             if (selectedIndex >= 0) {
                 // Buscar en la página activa
-                const activePage = document.querySelector('.page-content[style*="display: block"]');
-                const lines = activePage.querySelectorAll('.article-line');
+                const activePage = document.querySelector('.page-content[style*="display: block"]').id.replace('-content', '');
+                let lines;
                 
-                if (lines[selectedIndex]) {
+                if (activePage === 'feeds') {
+                    lines = document.querySelectorAll('#feeds-content .article-line');
+                } else if (activePage === 'saved') {
+                    lines = document.querySelectorAll('#saved-articles-list .article-line');
+                } else if (activePage === 'loved') {
+                    lines = document.querySelectorAll('#loved-articles-list .article-line');
+                }
+                
+                if (lines && lines[selectedIndex]) {
                     lines[selectedIndex].classList.add('selected');
                     lines[selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
+            }
+        }
+        
+        function toggleArticleGeneric(container, contentId, link) {
+            let content = container.querySelector('.article-content');
+            if (!content) {
+                content = document.createElement('div');
+                content.className = 'article-content';
+                content.id = contentId;
+                container.appendChild(content);
+            }
+            
+            const isCurrentlyExpanded = content.classList.contains('expanded');
+            
+            // Cerrar todos los artículos
+            document.querySelectorAll('.article-content').forEach(el => {
+                el.classList.remove('expanded');
+            });
+            
+            // Abrir el seleccionado si no estaba abierto
+            if (!isCurrentlyExpanded) {
+                content.classList.add('expanded');
+                
+                // Cargar contenido si no está cargado
+                if (!content.innerHTML.trim()) {
+                    content.innerHTML = 'Cargando contenido...';
+                    loadArticleContentGeneric(content, container, link);
+                }
+            }
+        }
+        
+        function loadArticleContentGeneric(content, container, link) {
+            // Obtener datos del artículo desde el DOM
+            const titleElement = container.querySelector('.title');
+            const metaElement = container.querySelector('.meta');
+            const linkElement = container.querySelector('.full-line-link');
+            
+            const title = titleElement ? titleElement.textContent : 'Sin título';
+            const meta = metaElement ? metaElement.textContent : '';
+            const description = linkElement ? linkElement.getAttribute('data-description') || '' : '';
+            
+            const metaParts = meta.split(' | ');
+            const date = metaParts[0] || '';
+            const source = metaParts[1] || '';
+            
+            setTimeout(() => {
+                // Limpiar la descripción de HTML tags
+                let cleanDescription = description || 'Contenido no disponible. Haz doble clic en la línea para ver el artículo completo.';
+                cleanDescription = cleanDescription.replace(/<[^>]*>/g, ''); // Quitar HTML tags
+                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' '); // Quitar HTML entities
+                cleanDescription = cleanDescription.trim();
+                
+                // Truncar si es muy largo
+                if (cleanDescription.length > 800) {
+                    cleanDescription = cleanDescription.substring(0, 800) + '...';
+                }
+                
+                // Determinar posición de botones según configuración
+                const buttonsPosition = localStorage.getItem('buttonsPosition') || 'right';
+                
+                // Botones con posición configurable
+                const buttonStyle = buttonsPosition === 'right' ? 
+                    'position: absolute; right: 15px; top: 15px; text-align: right;' :
+                    'position: absolute; left: 15px; top: 15px; text-align: left;';
+                
+                const buttonsHTML = '<div style="' + buttonStyle + '">' +
+                    '<div onclick="toggleSavedByLink(\'' + link + '\')" style="color: #FFD700; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[SAVED]</div>' +
+                    '<div onclick="toggleLovedByLink(\'' + link + '\')" style="color: #FF69B4; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[LOVED]</div>' +
+                    '<div onclick="shareArticleByLink(\'' + link + '\')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[SHARE]</div>' +
+                    '</div>';
+                
+                // NO mostrar imágenes en saved/loved para evitar imágenes rotas
+                // Las imágenes solo están disponibles en la vista principal de feeds
+                let imageHTML = '';
+                // Solo mostrar imágenes si estamos en la vista de feeds (no en saved/loved)
+                // donde tenemos la descripción completa
+                
+                // Ajustar padding según posición de botones
+                const contentPadding = buttonsPosition === 'right' ? 
+                    'padding-right: 100px;' : 
+                    'padding-left: 100px;';
+                
+                content.innerHTML = buttonsHTML +
+                                  '<div style="' + contentPadding + '">' +
+                                  (imageHTML || '') +
+                                  '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + date + ' | ' + source + '</div>' +
+                                  '<div style="margin-bottom: 10px;"><a href="' + link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + title + '</a></div>' +
+                                  cleanDescription +
+                                  '</div>';
+            }, 300);
+        }
+        
+        function toggleSavedByLink(link) {
+            const articleIndex = articles.findIndex(a => a.link === link);
+            if (articleIndex >= 0) {
+                toggleSaved(articleIndex);
+                updateSavedList();
+                updateLovedList();
+            }
+        }
+        
+        function toggleLovedByLink(link) {
+            const articleIndex = articles.findIndex(a => a.link === link);
+            if (articleIndex >= 0) {
+                toggleLoved(articleIndex);
+                updateSavedList();
+                updateLovedList();
+            }
+        }
+        
+        function shareArticleByLink(link) {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Artículo interesante',
+                    url: link
+                });
+            } else {
+                // Fallback: copiar al clipboard
+                navigator.clipboard.writeText(link).then(() => {
+                    alert('Enlace copiado al portapapeles');
+                });
             }
         }
         
@@ -807,17 +998,16 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 lovedList.innerHTML = '<p style="color: #888;">No hay artículos favoritos aún.</p>';
             } else {
                 let listHTML = '';
-                lovedArticles.forEach((article, originalIndex) => {
-                    // Encontrar el índice original del artículo
-                    const realIndex = articles.findIndex(a => a.link === article.link);
+                lovedArticles.forEach((article, index) => {
+                    const contentId = 'content-loved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
                     listHTML += '<div class="article-container">' +
-                               '<div class="article-line" onclick="toggleArticle(' + realIndex + ', event)">' +
+                               '<div class="article-line">' +
                                '<span class="full-line-link" data-link="' + article.link + '" data-description="' + (article.description || '') + '">' +
                                '<span class="meta">' + article.date + ' | ' + article.source + ' | </span>' +
                                '<span class="title">' + article.title + '</span>' +
                                '</span>' +
                                '</div>' +
-                               '<div id="content-' + realIndex + '" class="article-content"></div>' +
+                               '<div id="' + contentId + '" class="article-content"></div>' +
                                '</div>';
                 });
                 lovedList.innerHTML = listHTML;
@@ -838,17 +1028,16 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 savedList.innerHTML = '<p style="color: #888;">No hay artículos guardados aún.</p>';
             } else {
                 let listHTML = '';
-                savedArticles.forEach((article, originalIndex) => {
-                    // Encontrar el índice original del artículo
-                    const realIndex = articles.findIndex(a => a.link === article.link);
+                savedArticles.forEach((article, index) => {
+                    const contentId = 'content-saved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
                     listHTML += '<div class="article-container">' +
-                               '<div class="article-line" onclick="toggleArticle(' + realIndex + ', event)">' +
+                               '<div class="article-line">' +
                                '<span class="full-line-link" data-link="' + article.link + '" data-description="' + (article.description || '') + '">' +
                                '<span class="meta">' + article.date + ' | ' + article.source + ' | </span>' +
                                '<span class="title">' + article.title + '</span>' +
                                '</span>' +
                                '</div>' +
-                               '<div id="content-' + realIndex + '" class="article-content"></div>' +
+                               '<div id="' + contentId + '" class="article-content"></div>' +
                                '</div>';
                 });
                 savedList.innerHTML = listHTML;
@@ -979,6 +1168,8 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             } else if (pageName === 'feeds') {
                 selectedIndex = 0;
                 setTimeout(highlightSelected, 100);
+            } else {
+                selectedIndex = -1; // Para config u otras páginas sin artículos
             }
         }
         
@@ -1071,9 +1262,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 		title = strings.ReplaceAll(title, `"`, "&quot;")
 		title = strings.ReplaceAll(title, `'`, "&#39;")
 
-		// Limitar longitud para evitar atributos muy largos
-		if len(description) > 500 {
-			description = description[:500] + "..."
+		// Limitar longitud para evitar atributos muy largos, pero permitir más espacio para imágenes
+		if len(description) > 2000 {
+			description = description[:2000] + "..."
 		}
 
 		html += `<div class="article-container">
