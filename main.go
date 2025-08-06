@@ -654,7 +654,18 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                         if (selectedIndex < totalArticles - 1) {
                             selectedIndex++;
                             highlightSelected();
-                            toggleArticle(selectedIndex);
+                            // Expandir según la página activa
+                            if (activePage === 'feeds') {
+                                toggleArticle(selectedIndex);
+                            } else if (activePage === 'saved' || activePage === 'loved') {
+                                const container = articleContainers[selectedIndex];
+                                if (container) {
+                                    const link = container.querySelector('.full-line-link').getAttribute('data-link');
+                                    const prefix = activePage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                    const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
+                                    toggleArticleGeneric(container, contentId, link, true); // forceOpen = true para navegación
+                                }
+                            }
                         }
                     } else {
                         // Navegación normal
@@ -673,7 +684,18 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                         if (selectedIndex > 0) {
                             selectedIndex--;
                             highlightSelected();
-                            toggleArticle(selectedIndex);
+                            // Expandir según la página activa
+                            if (activePage === 'feeds') {
+                                toggleArticle(selectedIndex);
+                            } else if (activePage === 'saved' || activePage === 'loved') {
+                                const container = articleContainers[selectedIndex];
+                                if (container) {
+                                    const link = container.querySelector('.full-line-link').getAttribute('data-link');
+                                    const prefix = activePage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                    const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
+                                    toggleArticleGeneric(container, contentId, link, true); // forceOpen = true para navegación
+                                }
+                            }
                         }
                     } else {
                         // Navegación normal
@@ -823,7 +845,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             }
         }
         
-        function toggleArticleGeneric(container, contentId, link) {
+        function toggleArticleGeneric(container, contentId, link, forceOpen = false) {
             let content = container.querySelector('.article-content');
             if (!content) {
                 content = document.createElement('div');
@@ -839,8 +861,8 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 el.classList.remove('expanded');
             });
             
-            // Abrir el seleccionado si no estaba abierto
-            if (!isCurrentlyExpanded) {
+            // Abrir el seleccionado si no estaba abierto O si forceOpen es true
+            if (!isCurrentlyExpanded || forceOpen) {
                 content.classList.add('expanded');
                 
                 // Cargar contenido si no está cargado
