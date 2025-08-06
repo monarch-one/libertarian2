@@ -1022,8 +1022,24 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 let listHTML = '';
                 lovedArticles.forEach((article, index) => {
                     const contentId = 'content-loved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
-                    // Remover imágenes de la descripción para evitar problemas visuales
-                    let cleanDescription = (article.description || '').replace(/<img[^>]*>/g, '');
+                    // Limpiar completamente la descripción para evitar problemas visuales
+                    let cleanDescription = (article.description || '');
+                    // Remover todas las etiquetas HTML incluyendo imágenes
+                    cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
+                    // Remover entidades HTML 
+                    cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
+                    // Remover caracteres especiales y texto truncado
+                    cleanDescription = cleanDescription.replace(/\[\.\.\.\"?>.*$/g, '');
+                    cleanDescription = cleanDescription.replace(/Comments.*$/g, '');
+                    // Remover caracteres de control y problemáticos
+                    cleanDescription = cleanDescription.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+                    // Remover caracteres especiales que causan problemas visuales
+                    cleanDescription = cleanDescription.replace(/[^\w\s\.\,\!\?\:\;\-\(\)\'\"\u00C0-\u00FF]/g, ' ');
+                    // Limpiar espacios múltiples
+                    cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
+                    // Escapar comillas para HTML
+                    cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    
                     listHTML += '<div class="article-container">' +
                                '<div class="article-line">' +
                                '<span class="full-line-link" data-link="' + article.link + '" data-description="' + cleanDescription + '">' +
@@ -1054,8 +1070,24 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 let listHTML = '';
                 savedArticles.forEach((article, index) => {
                     const contentId = 'content-saved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
-                    // Remover imágenes de la descripción para evitar problemas visuales
-                    let cleanDescription = (article.description || '').replace(/<img[^>]*>/g, '');
+                    // Limpiar completamente la descripción para evitar problemas visuales
+                    let cleanDescription = (article.description || '');
+                    // Remover todas las etiquetas HTML incluyendo imágenes
+                    cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
+                    // Remover entidades HTML 
+                    cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
+                    // Remover caracteres especiales y texto truncado
+                    cleanDescription = cleanDescription.replace(/\[\.\.\.\"?>.*$/g, '');
+                    cleanDescription = cleanDescription.replace(/Comments.*$/g, '');
+                    // Remover caracteres de control y problemáticos
+                    cleanDescription = cleanDescription.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+                    // Remover caracteres especiales que causan problemas visuales
+                    cleanDescription = cleanDescription.replace(/[^\w\s\.\,\!\?\:\;\-\(\)\'\"\u00C0-\u00FF]/g, ' ');
+                    // Limpiar espacios múltiples
+                    cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
+                    // Escapar comillas para HTML
+                    cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    
                     listHTML += '<div class="article-container">' +
                                '<div class="article-line">' +
                                '<span class="full-line-link" data-link="' + article.link + '" data-description="' + cleanDescription + '">' +
@@ -1271,6 +1303,17 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 		}
 		// Limpiar y escapar caracteres especiales para HTML/JavaScript
 		description := article.Description
+
+		// Limpiar HTML tags y contenido problemático antes de escapar
+		description = strings.ReplaceAll(description, "&lt;", "<")
+		description = strings.ReplaceAll(description, "&gt;", ">")
+		description = strings.ReplaceAll(description, "&amp;", "&")
+
+		// Remover contenido problemático común en feeds
+		description = strings.ReplaceAll(description, "Comments\"", "")
+		description = strings.ReplaceAll(description, "[...]\"", "")
+
+		// Escapar caracteres especiales para HTML
 		description = strings.ReplaceAll(description, "&", "&amp;")
 		description = strings.ReplaceAll(description, "<", "&lt;")
 		description = strings.ReplaceAll(description, ">", "&gt;")
