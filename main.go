@@ -296,6 +296,42 @@ func saveFeed(feed Feed) error {
 	return json.NewEncoder(file).Encode(feeds)
 }
 
+// Función para guardar toda la lista de feeds
+func saveFeeds(feeds []Feed) error {
+	file, err := os.Create("feeds.json")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return json.NewEncoder(file).Encode(feeds)
+}
+
+// Función para verificar si un feed está accesible
+func fetchFeed(feedURL string) (*gofeed.Feed, error) {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   15 * time.Second,
+			KeepAlive: 15 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+
+	client := &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: transport,
+	}
+
+	fp := gofeed.NewParser()
+	fp.Client = client
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	return fp.ParseURLWithContext(feedURL, ctx)
+}
+
 func loadFavoriteArticles() []FavoriteArticle {
 	file, err := os.Open("favorites.json")
 	if err != nil {
@@ -409,7 +445,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             margin: 0; 
             text-align: left;
             width: 100%;
-            padding-top: 140px;
+            padding-top: 170px;
             overflow: hidden;
             position: relative;
         }
@@ -426,6 +462,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             padding: 10px 20px;
             border-bottom: 1px solid #333;
             box-sizing: border-box;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         }
         .datetime-display {
             position: absolute;
@@ -465,6 +502,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             z-index: 1100;
             padding: 0 20px;
             box-sizing: border-box;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         }
         .tabs::before {
             content: '';
@@ -475,6 +513,17 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             height: 20px;
             background: #000;
             z-index: 1101;
+        }
+        .tabs::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: #000;
+            z-index: 1101;
+            border-bottom: 1px solid #333;
         }
         .tab {
             flex: 1;
@@ -606,9 +655,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             line-height: 1.4;
             white-space: normal;
             word-wrap: break-word;
-            max-height: 500px;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden;
             position: relative;
         }
         .article-content.expanded {
@@ -687,7 +734,6 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .config-section {
             margin: 15px 0;
             padding: 10px;
-            border: 1px solid #333;
         }
         .config-label {
             display: block;
@@ -727,9 +773,65 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             padding-bottom: 10px;
             color: #00ff00;
         }
+        
+        /* Feed management styles */
+        .feeds-list {
+            margin: 10px 0;
+        }
+        .feed-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin: 2px 0;
+            background: #000;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            border-left: 3px solid transparent;
+        }
+        .feed-item.selected {
+            background: #001100;
+            border-left: 3px solid #00ff00;
+        }
+        .feed-item.broken {
+            color: #ff4444;
+            background: #110000;
+        }
+        .feed-item.checking {
+            color: #ffaa00;
+            background: #111100;
+        }
+        .feed-item.working {
+            color: #00ff00;
+        }
+        .feed-status {
+            width: 60px;
+            margin-right: 10px;
+            font-size: 11px;
+            color: #888;
+        }
+        .feed-title {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .feed-url {
+            color: #888;
+            font-size: 11px;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .feeds-section-header {
+            color: #00ff00;
+            font-weight: bold;
+            margin: 15px 0 5px 0;
+            font-size: 14px;
+        }
     </style>
     <script>
         let selectedIndex = -1;
+        let actualArticleIndex = -1; // Para trackear el artículo real que estamos navegando
         const articles = [];
         let currentPage = 'feeds'; // Variable para rastrear la página activa
         
@@ -752,30 +854,39 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 el.classList.remove('expanded');
             });
             
+            // SIEMPRE mover el artículo al primer lugar (tanto al abrir como al cerrar)
+            moveArticleToTop(index);
+            
             // Abrir el seleccionado si no estaba abierto
             if (!isCurrentlyExpanded) {
-                content.classList.add('expanded');
-                selectedIndex = index;
-                
-                // Marcar artículo como leído
-                const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
-                if (articleLine) {
-                    articleLine.classList.add('read');
-                    articles[index].isRead = true;
+                // Ahora el artículo está en índice 0
+                const newContent = document.getElementById('content-0');
+                if (newContent) {
+                    newContent.classList.add('expanded');
+                    selectedIndex = 0;
+                    actualArticleIndex = index; // Mantener el tracking del artículo original
+                    
+                    // Marcar artículo como leído
+                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(0,"]');
+                    if (articleLine) {
+                        articleLine.classList.add('read');
+                        articles[0].isRead = true;
+                    }
+                    
+                    // Cargar contenido completo sin límites
+                    loadArticleContent(0);
                 }
-                
-                // Mover el artículo expandido al primer lugar
-                moveArticleToTop(index);
-                
-                // Scroll al principio de la página
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-                
-                // Cargar contenido completo sin límites
-                loadArticleContent(index);
+            } else {
+                // Si se está cerrando, mantener seleccionado el artículo (ahora en posición 0)
+                selectedIndex = 0;
+                actualArticleIndex = 0; // Resetear cuando se cierra
             }
+            
+            // Scroll al principio de la página
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
         }
         
         function moveArticleToTop(expandedIndex) {
@@ -960,9 +1071,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             
             content.innerHTML = buttonsHTML +
                               '<div style="' + contentPadding + '">' +
-                              (imageHTML || '') +
                               '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + article.date + ' | ' + article.source + '</div>' +
                               '<div style="margin-bottom: 15px;"><a href="' + article.link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + article.title + '</a></div>' +
+                              (imageHTML || '') +
                               '<div style="line-height: 1.6; color: #ccc; text-align: justify;">' + articleText + '</div>' +
                               (fullContent ? '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">FULL CONTENT LOADED</div>' : '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">RSS feed content. Double click on the line to view the complete article on the original site</div>') +
                               '</div>';
@@ -996,18 +1107,12 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             switch(event.code) {
                 case 'Space':
                     event.preventDefault();
+                    
+                    // Space = abrir/cerrar el artículo seleccionado
                     if (selectedIndex >= 0 && totalArticles > 0) {
-                        // Scroll al principio de la página antes de expandir
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
-                        
-                        // Expandir artículo según la página
                         if (currentPage === 'feeds') {
                             toggleArticle(selectedIndex);
                         } else if (currentPage === 'saved' || currentPage === 'loved') {
-                            // Para saved/loved necesitamos usar un ID único basado en el link
                             const container = articleContainers[selectedIndex];
                             if (container) {
                                 const link = container.querySelector('.full-line-link').getAttribute('data-link');
@@ -1020,35 +1125,51 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     break;
                     
                 case 'ArrowDown':
+                    event.preventDefault();
+                    // Flecha abajo = scroll hacia abajo
+                    if (expandedArticle) {
+                        const scrollAmount = window.innerHeight * 0.8;
+                        window.scrollBy({
+                            top: scrollAmount,
+                            behavior: 'smooth'
+                        });
+                    }
+                    break;
+                    
                 case 'KeyJ':
                     event.preventDefault();
                     if (expandedArticle) {
-                        // Si hay artículo expandido, ir al siguiente y expandirlo SIN mover al top
-                        if (selectedIndex < totalArticles - 1) {
+                        // Si hay artículo expandido, ir al siguiente y expandirlo moviendo al top
+                        if (actualArticleIndex < totalArticles - 1) {
                             // Cerrar artículo actual
                             document.querySelectorAll('.article-content').forEach(el => {
                                 el.classList.remove('expanded');
                             });
                             
-                            selectedIndex++;
-                            highlightSelected();
+                            actualArticleIndex++; // Incrementar el índice del artículo real
                             
-                            // Expandir el siguiente artículo SIN mover
+                            // Expandir el siguiente artículo Y moverlo al top
                             if (currentPage === 'feeds') {
-                                const content = document.getElementById('content-' + selectedIndex);
+                                // Mover artículo al top primero
+                                moveArticleToTop(actualArticleIndex);
+                                
+                                // Ahora está en índice 0, expandirlo
+                                const content = document.getElementById('content-0');
                                 if (content) {
                                     content.classList.add('expanded');
+                                    selectedIndex = 0; // El índice visual siempre será 0 después del move
                                     
                                     // Marcar artículo como leído
-                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + selectedIndex + ',"]');
+                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(0,"]');
                                     if (articleLine) {
                                         articleLine.classList.add('read');
-                                        articles[selectedIndex].isRead = true;
+                                        articles[0].isRead = true;
                                     }
                                     
-                                    loadArticleContent(selectedIndex);
+                                    loadArticleContent(0);
                                 }
                             } else if (currentPage === 'saved' || currentPage === 'loved') {
+                                selectedIndex = actualArticleIndex;
                                 const container = articleContainers[selectedIndex];
                                 if (container) {
                                     const link = container.querySelector('.full-line-link').getAttribute('data-link');
@@ -1057,46 +1178,72 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                                     toggleArticleGeneric(container, contentId, link, true);
                                 }
                             }
+                            
+                            // Scroll al principio
+                            window.scrollTo({
+                                top: 0,
+                                behavior: 'smooth'
+                            });
+                            
+                            // Highlighting después de abrir el contenido
+                            highlightSelected();
                         }
                     } else {
                         // Navegación normal
                         if (selectedIndex < totalArticles - 1) {
                             selectedIndex++;
+                            actualArticleIndex = selectedIndex; // Sincronizar cuando no hay artículo expandido
                             highlightSelected();
                         }
                     }
                     break;
                     
                 case 'ArrowUp':
+                    event.preventDefault();
+                    // Flecha arriba = scroll hacia arriba
+                    if (expandedArticle) {
+                        const scrollAmount = window.innerHeight * 0.8;
+                        window.scrollBy({
+                            top: -scrollAmount,
+                            behavior: 'smooth'
+                        });
+                    }
+                    break;
+                    
                 case 'KeyK':
                     event.preventDefault();
                     if (expandedArticle) {
-                        // Si hay artículo expandido, ir al anterior y expandirlo SIN mover al top
-                        if (selectedIndex > 0) {
+                        // Si hay artículo expandido, permitir siempre navegación hacia arriba
+                        if (actualArticleIndex > 0) {
                             // Cerrar artículo actual
                             document.querySelectorAll('.article-content').forEach(el => {
                                 el.classList.remove('expanded');
                             });
                             
-                            selectedIndex--;
-                            highlightSelected();
+                            actualArticleIndex--; // Decrementar el índice del artículo real
                             
-                            // Expandir el anterior artículo SIN mover
+                            // Expandir el anterior artículo Y moverlo al top
                             if (currentPage === 'feeds') {
-                                const content = document.getElementById('content-' + selectedIndex);
+                                // Mover artículo al top primero
+                                moveArticleToTop(actualArticleIndex);
+                                
+                                // Ahora está en índice 0, expandirlo
+                                const content = document.getElementById('content-0');
                                 if (content) {
                                     content.classList.add('expanded');
+                                    selectedIndex = 0; // El índice visual siempre será 0 después del move
                                     
                                     // Marcar artículo como leído
-                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + selectedIndex + ',"]');
+                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(0,"]');
                                     if (articleLine) {
                                         articleLine.classList.add('read');
-                                        articles[selectedIndex].isRead = true;
+                                        articles[0].isRead = true;
                                     }
                                     
-                                    loadArticleContent(selectedIndex);
+                                    loadArticleContent(0);
                                 }
                             } else if (currentPage === 'saved' || currentPage === 'loved') {
+                                selectedIndex = actualArticleIndex;
                                 const container = articleContainers[selectedIndex];
                                 if (container) {
                                     const link = container.querySelector('.full-line-link').getAttribute('data-link');
@@ -1105,14 +1252,31 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                                     toggleArticleGeneric(container, contentId, link, true);
                                 }
                             }
+                            
+                            // Scroll al principio
+                            window.scrollTo({
+                                top: 0,
+                                behavior: 'smooth'
+                            });
+                            
+                            // Highlighting después de abrir el contenido
+                            highlightSelected();
+                        } else {
+                            // Si actualArticleIndex es 0 y hay artículo expandido, hacer scroll hacia arriba para ver artículos anteriores
+                            window.scrollBy({
+                                top: -window.innerHeight * 0.5,
+                                behavior: 'smooth'
+                            });
                         }
                     } else {
                         // Navegación normal
                         if (selectedIndex > 0) {
                             selectedIndex--;
+                            actualArticleIndex = selectedIndex; // Sincronizar cuando no hay artículo expandido
                             highlightSelected();
                         } else if (selectedIndex === -1 && totalArticles > 0) {
                             selectedIndex = 0;
+                            actualArticleIndex = 0; // Sincronizar
                             highlightSelected();
                         }
                     }
@@ -1217,11 +1381,12 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     
                 case 'Escape':
                     event.preventDefault();
-                    // Cerrar todos los artículos expandidos y volver a feeds
+                    // Cerrar todos los artículos expandidos pero mantener la posición
                     document.querySelectorAll('.article-content').forEach(el => {
                         el.classList.remove('expanded');
                     });
-                    showPage('feeds');
+                    // Mantener el selectedIndex y la posición - NO volver a feeds automáticamente
+                    highlightSelected();
                     break;
                     
                 case 'F1':
@@ -1244,6 +1409,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     showPage('config');
                     break;
             }
+            
+            // Manejar navegación en config
+            handleConfigKeyDown(event);
         });
         
         function highlightSelected() {
@@ -1270,7 +1438,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     
                     // Calcular la posición para que el elemento seleccionado esté en la primera línea visible
                     const element = lines[selectedIndex];
-                    const headerHeight = 160; // Altura del header + pestañas
+                    const headerHeight = 140; // Altura del header + pestañas ajustada
                     
                     // Obtener la posición absoluta del elemento en la página
                     const elementTop = element.offsetTop;
@@ -1313,7 +1481,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                         block: 'start' 
                     });
                     // Ajuste adicional para el header fijo
-                    window.scrollBy(0, -180);
+                    window.scrollBy(0, -140);
                 }, 100);
                 
                 // Cargar contenido si no está cargado
@@ -1703,8 +1871,11 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             } else if (pageName === 'feeds') {
                 selectedIndex = 0;
                 setTimeout(highlightSelected, 100);
+            } else if (pageName === 'config') {
+                selectedIndex = -1;
+                loadFeedsManagement(); // Cargar lista de feeds
             } else {
-                selectedIndex = -1; // Para config u otras páginas sin artículos
+                selectedIndex = -1; // Para otras páginas sin artículos
             }
         }
         
@@ -1716,6 +1887,277 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         function closeModal(windowName) {
             // Ya no es necesaria, pero la mantenemos por compatibilidad
             showPage('feeds');
+        }
+        
+        // Variables para gestión de feeds
+        let feeds = [];
+        let selectedFeedIndex = -1;
+        
+        // Función para cargar la gestión de feeds
+        function loadFeedsManagement() {
+            fetch('/api/feeds')
+                .then(response => response.json())
+                .then(data => {
+                    feeds = data;
+                    
+                    // Renderizar lista inmediatamente con estado "checking"
+                    feeds.forEach(feed => {
+                        feed.isWorking = null; // null = checking
+                    });
+                    renderFeedsList();
+                    
+                    // Verificar estado en segundo plano
+                    checkAllFeedsStatus();
+                })
+                .catch(error => {
+                    console.error('Error loading feeds:', error);
+                    feeds = [];
+                    renderFeedsList();
+                });
+        }
+        
+        // Función para verificar el estado de todos los feeds
+        function checkAllFeedsStatus() {
+            let completedChecks = 0;
+            const totalFeeds = feeds.length;
+            
+            // Verificar feeds en lotes para mejor rendimiento
+            const batchSize = 5;
+            for (let i = 0; i < totalFeeds; i += batchSize) {
+                const batch = feeds.slice(i, i + batchSize);
+                
+                batch.forEach((feed, index) => {
+                    const globalIndex = i + index;
+                    checkFeedStatus(feed.url)
+                        .then(isWorking => {
+                            feeds[globalIndex].isWorking = isWorking;
+                            completedChecks++;
+                            
+                            // Re-renderizar cuando se complete cada lote
+                            if (completedChecks % batchSize === 0 || completedChecks === totalFeeds) {
+                                renderFeedsList();
+                            }
+                        })
+                        .catch(() => {
+                            feeds[globalIndex].isWorking = false;
+                            completedChecks++;
+                            
+                            // Re-renderizar cuando se complete cada lote
+                            if (completedChecks % batchSize === 0 || completedChecks === totalFeeds) {
+                                renderFeedsList();
+                            }
+                        });
+                });
+            }
+        }
+        
+        // Función para verificar si un feed está funcionando
+        function checkFeedStatus(url) {
+            return fetch('/api/check-feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => data.working)
+            .catch(() => false);
+        }
+        
+        // Función para renderizar la lista de feeds
+        function renderFeedsList() {
+            const feedsList = document.getElementById('feeds-list');
+            if (!feedsList) return;
+            
+            // Separar feeds por estado
+            const brokenFeeds = feeds.filter(feed => feed.isWorking === false);
+            const workingFeeds = feeds.filter(feed => feed.isWorking === true);
+            const checkingFeeds = feeds.filter(feed => feed.isWorking === null);
+            
+            let html = '';
+            
+            // Mostrar feeds rotos primero
+            brokenFeeds.forEach((feed, index) => {
+                const feedTitle = extractFeedTitle(feed.url);
+                const globalIndex = feeds.indexOf(feed);
+                html += '<div class="feed-item broken" data-index="' + globalIndex + '">' +
+                       '<div class="feed-status">BROKEN</div>' +
+                       '<div class="feed-title">' + feedTitle + '</div>' +
+                       '<div class="feed-url">' + feed.url + '</div>' +
+                       '</div>';
+            });
+            
+            // Mostrar feeds en verificación
+            checkingFeeds.forEach((feed, index) => {
+                const feedTitle = extractFeedTitle(feed.url);
+                const globalIndex = feeds.indexOf(feed);
+                html += '<div class="feed-item checking" data-index="' + globalIndex + '">' +
+                       '<div class="feed-status">CHECK...</div>' +
+                       '<div class="feed-title">' + feedTitle + '</div>' +
+                       '<div class="feed-url">' + feed.url + '</div>' +
+                       '</div>';
+            });
+            
+            // Mostrar feeds funcionando al final
+            workingFeeds.forEach((feed, index) => {
+                const feedTitle = extractFeedTitle(feed.url);
+                const globalIndex = feeds.indexOf(feed);
+                html += '<div class="feed-item working" data-index="' + globalIndex + '">' +
+                       '<div class="feed-status">WORKING</div>' +
+                       '<div class="feed-title">' + feedTitle + '</div>' +
+                       '<div class="feed-url">' + feed.url + '</div>' +
+                       '</div>';
+            });
+            
+            feedsList.innerHTML = html;
+            
+            // Mantener selección si existe, o seleccionar el primero
+            const feedItems = document.querySelectorAll('.feed-item');
+            if (feedItems.length > 0) {
+                let selectedItem = null;
+                
+                // Buscar si hay un item ya seleccionado
+                feedItems.forEach(item => {
+                    if (parseInt(item.getAttribute('data-index')) === selectedFeedIndex) {
+                        selectedItem = item;
+                    }
+                });
+                
+                // Si no hay selección previa, seleccionar el primero
+                if (!selectedItem) {
+                    selectedItem = feedItems[0];
+                    selectedFeedIndex = parseInt(selectedItem.getAttribute('data-index'));
+                }
+                
+                selectedItem.classList.add('selected');
+            }
+        }
+        
+        // Función para extraer título del feed desde la URL
+        function extractFeedTitle(url) {
+            try {
+                const urlObj = new URL(url);
+                let title = urlObj.hostname;
+                
+                // Casos especiales para mejorar la legibilidad
+                if (title.includes('youtube.com')) {
+                    return 'YouTube Channel';
+                } else if (title.includes('reddit.com')) {
+                    return 'Reddit Feed';
+                } else if (title.includes('news.ycombinator.com')) {
+                    return 'Hacker News';
+                } else if (title.includes('xkcd.com')) {
+                    return 'XKCD';
+                } else if (title.includes('brave.com')) {
+                    return 'Brave Blog';
+                } else if (title.includes('firstshowing.net')) {
+                    return 'FirstShowing.net';
+                }
+                
+                // Limpiar www. y subdominios comunes
+                title = title.replace(/^www\./, '');
+                return title;
+            } catch {
+                return 'Unknown Feed';
+            }
+        }
+        
+        // Función para eliminar un feed
+        function deleteFeed(index) {
+            if (index >= 0 && index < feeds.length) {
+                const feedToDelete = feeds[index];
+                
+                fetch('/api/delete-feed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: feedToDelete.url })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        feeds.splice(index, 1);
+                        // Ajustar índice seleccionado
+                        if (selectedFeedIndex >= feeds.length) {
+                            selectedFeedIndex = feeds.length - 1;
+                        }
+                        renderFeedsList();
+                    } else {
+                        alert('Error deleting feed: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting feed:', error);
+                    alert('Error deleting feed');
+                });
+            }
+        }
+        
+        // Navegación con teclado para feeds (solo cuando estamos en config)
+        function handleConfigKeyDown(event) {
+            if (currentPage !== 'config') return;
+            
+            const feedItems = document.querySelectorAll('.feed-item');
+            const totalFeeds = feedItems.length;
+            
+            if (totalFeeds === 0) return;
+            
+            switch(event.code) {
+                case 'KeyJ':
+                case 'ArrowDown':
+                    event.preventDefault();
+                    // Navegar hacia abajo en la lista visual
+                    let currentVisualIndex = -1;
+                    feedItems.forEach((item, index) => {
+                        if (item.classList.contains('selected')) {
+                            currentVisualIndex = index;
+                        }
+                    });
+                    
+                    if (currentVisualIndex < totalFeeds - 1) {
+                        // Quitar selección actual
+                        feedItems.forEach(item => item.classList.remove('selected'));
+                        
+                        // Seleccionar siguiente
+                        const nextItem = feedItems[currentVisualIndex + 1];
+                        nextItem.classList.add('selected');
+                        selectedFeedIndex = parseInt(nextItem.getAttribute('data-index'));
+                        
+                        // Scroll si es necesario
+                        nextItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    break;
+                    
+                case 'KeyK':
+                case 'ArrowUp':
+                    event.preventDefault();
+                    // Navegar hacia arriba en la lista visual
+                    let currentVisualIndexUp = -1;
+                    feedItems.forEach((item, index) => {
+                        if (item.classList.contains('selected')) {
+                            currentVisualIndexUp = index;
+                        }
+                    });
+                    
+                    if (currentVisualIndexUp > 0) {
+                        // Quitar selección actual
+                        feedItems.forEach(item => item.classList.remove('selected'));
+                        
+                        // Seleccionar anterior
+                        const prevItem = feedItems[currentVisualIndexUp - 1];
+                        prevItem.classList.add('selected');
+                        selectedFeedIndex = parseInt(prevItem.getAttribute('data-index'));
+                        
+                        // Scroll si es necesario
+                        prevItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    break;
+                    
+                case 'KeyD':
+                    event.preventDefault();
+                    if (selectedFeedIndex >= 0 && confirm('Delete selected feed?')) {
+                        deleteFeed(selectedFeedIndex);
+                    }
+                    break;
+            }
         }
         
         document.addEventListener('DOMContentLoaded', function() {
@@ -1896,39 +2338,20 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             <div class="page-header">CONFIGURATION (F4)</div>
             
             <div class="config-section">
-                <h3>RSS Feeds</h3>
-                <label class="config-label">RSS Feed URL:</label>
-                <input type="text" class="config-input" placeholder="https://example.com/feed.xml">
-                <button onclick="alert('Feature to be implemented')" style="background: none; border: 1px solid #00ff00; color: #00ff00; padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; margin-left: 10px;">Add</button>
+                <h3>RSS FEEDS MANAGEMENT</h3>
+                <p style="color: #888; margin-bottom: 20px;">Navigate with J/K, delete with D</p>
                 
-                <br><br>
-                <label class="config-label">Import OPML file:</label>
-                <input type="file" class="config-input" accept=".opml,.xml">
-                <button onclick="alert('Feature to be implemented')" style="background: none; border: 1px solid #00ff00; color: #00ff00; padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; margin-left: 10px;">Import</button>
+                <div id="feeds-list-container">
+                    <div id="feeds-list"></div>
+                </div>
             </div>
             
             <div class="config-section">
-                <h3>Interface</h3>
+                <h3>Interface Settings</h3>
                 <label class="config-label">Article buttons position:</label>
                 <select id="buttonsConfigModal" onchange="changeButtonsPosition()" class="config-select">
                     <option value="right">Right</option>
                     <option value="left">Left</option>
-                </select>
-            </div>
-            
-            <div class="config-section">
-                <h3>Feeds</h3>
-                <label class="config-label">Update interval (minutes):</label>
-                <input type="number" class="config-input" value="30" min="5" max="1440">
-            </div>
-            
-            <div class="config-section">
-                <h3>Appearance</h3>
-                <label class="config-label">Theme:</label>
-                <select class="config-select">
-                    <option value="green">Green (current)</option>
-                    <option value="blue">Blue</option>
-                    <option value="amber">Amber</option>
                 </select>
             </div>
             
@@ -2563,18 +2986,18 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             font-size: 20px;
             font-weight: bold;
             margin-bottom: 12px;
-            color: #00ff00;
+            color: #00aa00;
             text-align: center;
             font-family: 'Courier New', monospace;
             white-space: pre;
             line-height: 1.0;
-            text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            text-shadow: 0 0 10px #00aa00, 0 0 20px #00aa00;
             animation: glow 2s ease-in-out infinite alternate;
         }
         
         @keyframes glow {
-            from { text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00; }
-            to { text-shadow: 0 0 30px #00ff00, 0 0 60px #00ff00; }
+            from { text-shadow: 0 0 10px #00aa00, 0 0 20px #00aa00; }
+            to { text-shadow: 0 0 15px #00aa00, 0 0 30px #00aa00; }
         }
         
         .login-subtitle {
@@ -2922,6 +3345,121 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 }
 
+// Handler para obtener la lista de feeds
+func feedsAPIHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	feeds := loadFeeds()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(feeds)
+}
+
+// Handler para verificar el estado de un feed
+func checkFeedHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		URL string `json:"url"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Intentar obtener el feed
+	working := true
+	_, err := fetchFeed(request.URL)
+	if err != nil {
+		working = false
+	}
+
+	response := struct {
+		Working bool `json:"working"`
+	}{
+		Working: working,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// Handler para eliminar un feed
+func deleteFeedHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		URL string `json:"url"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Cargar feeds actuales
+	feeds := loadFeeds()
+
+	// Filtrar el feed a eliminar
+	var updatedFeeds []Feed
+	found := false
+	for _, feed := range feeds {
+		if feed.URL != request.URL {
+			updatedFeeds = append(updatedFeeds, feed)
+		} else {
+			found = true
+		}
+	}
+
+	if !found {
+		response := struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   "Feed not found",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Guardar feeds actualizados
+	if err := saveFeeds(updatedFeeds); err != nil {
+		response := struct {
+			Success bool   `json:"success"`
+			Error   string `json:"error"`
+		}{
+			Success: false,
+			Error:   "Failed to save feeds: " + err.Error(),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	response := struct {
+		Success bool `json:"success"`
+	}{
+		Success: true,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+
+	log.Printf("🗑️  Feed deleted: %s", request.URL)
+}
+
 func main() {
 	// Limpiar sesiones expiradas cada hora
 	go func() {
@@ -2946,6 +3484,9 @@ func main() {
 	mux.Handle("/favorite", authMiddleware(http.HandlerFunc(favoriteHandler)))
 	mux.Handle("/api/favorites", authMiddleware(http.HandlerFunc(apiFavoritesHandler)))
 	mux.Handle("/api/scrape-article", authMiddleware(http.HandlerFunc(scrapeArticleHandler)))
+	mux.Handle("/api/feeds", authMiddleware(http.HandlerFunc(feedsAPIHandler)))
+	mux.Handle("/api/check-feed", authMiddleware(http.HandlerFunc(checkFeedHandler)))
+	mux.Handle("/api/delete-feed", authMiddleware(http.HandlerFunc(deleteFeedHandler)))
 	mux.Handle("/clear-cache", authMiddleware(http.HandlerFunc(clearCacheHandler)))
 	mux.Handle("/logout", authMiddleware(http.HandlerFunc(logoutHandler)))
 
