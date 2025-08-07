@@ -24,7 +24,7 @@
         <!-- FEEDS TAB -->
         <div id="feeds-tab" class="tab-panel active">
             <div class="feeds-status">
-                <span id="feeds-count">Cargando feeds...</span>
+                <span id="feeds-count">Loading feeds...</span>
                 <button onclick="refreshFeeds()" class="refresh-button">🔄 ACTUALIZAR</button>
             </div>
                         
@@ -89,7 +89,7 @@
                 <p class="tab-description">Artículos marcados para leer más tarde</p>
             </div>
             <div id="favorites-list">
-                <p class="loading-message">Cargando artículos para leer...</p>
+                <p class="loading-message">Loading articles to read...</p>
             </div>
         </div>
         
@@ -100,14 +100,14 @@
                 <p class="tab-description">Artículos guardados permanentemente</p>
             </div>
             <div id="saved-list">
-                <p class="loading-message">Cargando artículos guardados...</p>
+                <p class="loading-message">Loading saved articles...</p>
             </div>
         </div>
         
         <!-- CONFIG TAB -->
         <div id="config-tab" class="tab-panel">
             <div class="tab-header">
-                <h2>⚙️ CONFIGURACIÓN & GESTIÓN</h2>
+                <h2>⚙️ CONFIGURATION & MANAGEMENT</h2>
             </div>
             
             <div class="config-section">
@@ -262,7 +262,7 @@
                 });
                 container.innerHTML = html;
             } catch (error) {
-                container.innerHTML = '<p class="error-message">Error cargando favoritos.</p>';
+                container.innerHTML = '<p class="error-message">Error loading favorites.</p>';
             }
         }
         
@@ -274,14 +274,126 @@
             });
         }
         
+        function extractChannelName(url) {
+            try {
+                // Para YouTube
+                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    if (url.includes('/channel/')) {
+                        const channelId = url.match(/\/channel\/([^\/\?]+)/);
+                        return channelId ? `YouTube Channel ${channelId[1].substring(0, 8)}...` : 'YouTube Channel';
+                    } else if (url.includes('/feeds/videos.xml?channel_id=')) {
+                        const channelId = url.match(/channel_id=([^&]+)/);
+                        return channelId ? `YouTube Channel ${channelId[1].substring(0, 8)}...` : 'YouTube Channel';
+                    } else if (url.includes('/feeds/videos.xml?user=')) {
+                        const username = url.match(/user=([^&]+)/);
+                        return username ? `YouTube @${username[1]}` : 'YouTube Channel';
+                    }
+                    return 'YouTube Channel';
+                }
+                
+                // Para otros sitios, extraer dominio
+                const urlObj = new URL(url);
+                let domain = urlObj.hostname.replace('www.', '');
+                
+                // Casos especiales conocidos
+                if (domain.includes('reddit.com')) return 'Reddit';
+                if (domain.includes('github.com')) return 'GitHub';
+                if (domain.includes('medium.com')) return 'Medium';
+                if (domain.includes('dev.to')) return 'Dev.to';
+                if (domain.includes('hackernews')) return 'Hacker News';
+                
+                // Capitalizar primera letra del dominio
+                domain = domain.split('.')[0];
+                return domain.charAt(0).toUpperCase() + domain.slice(1);
+                
+            } catch (e) {
+                return 'Unknown Source';
+            }
+        }
+        
         function loadConfig() {
+            // Load stats
             fetch('/api/stats').then(response => response.json()).then(stats => {
                 document.getElementById('total-feeds').textContent = `Total: ${stats.totalFeeds}`;
-                document.getElementById('active-feeds').textContent = `Activos: ${stats.activeFeeds}`;
+                document.getElementById('active-feeds').textContent = `Active: ${stats.activeFeeds}`;
             }).catch(() => {
                 document.getElementById('total-feeds').textContent = 'Total: --';
-                document.getElementById('active-feeds').textContent = 'Activos: --';
+                document.getElementById('active-feeds').textContent = 'Active: --';
             });
+            
+            // Load and display feeds list automatically
+            loadFeedsList();
+        }
+        
+        function loadFeedsList() {
+            const feedsList = document.getElementById('feeds-list-config');
+            if (!feedsList) {
+                // Create feeds list section if it doesn't exist
+                const configSection = document.querySelector('.feeds-management');
+                if (configSection) {
+                    const feedsListHTML = `
+                        <div id="feeds-list-config" style="margin-top: 20px;">
+                            <h4>📂 CURRENT FEEDS</h4>
+                            <div id="feeds-content-config" style="max-height: 300px; overflow-y: auto; border: 1px solid #333; padding: 10px; background: #111;">
+                                Loading feeds...
+                            </div>
+                        </div>
+                    `;
+                    configSection.insertAdjacentHTML('beforeend', feedsListHTML);
+                }
+            }
+            
+            // Load feeds data
+            fetch('/api/feeds')
+                .then(response => response.json())
+                .then(feeds => {
+                    const feedsContent = document.getElementById('feeds-content-config');
+                    if (feedsContent) {
+                        let html = '';
+                        
+                        // Separar feeds problemáticos y activos
+                        const brokenFeeds = feeds.filter(feed => !feed.Active);
+                        const workingFeeds = feeds.filter(feed => feed.Active);
+                        
+                        // Mostrar feeds problemáticos primero en rojo
+                        if (brokenFeeds.length > 0) {
+                            html += '<div style="margin-bottom: 15px;"><div style="color: #ff4444; font-weight: bold; margin-bottom: 8px;">⚠️ PROBLEMATIC FEEDS</div>';
+                            brokenFeeds.forEach((feed, index) => {
+                                const channelName = extractChannelName(feed.URL);
+                                html += `
+                                    <div style="padding: 8px; border-bottom: 1px solid #333; font-family: 'JetBrains Mono', monospace; font-size: 14px;">
+                                        <div style="color: #ff4444;">❌ BROKEN - ${channelName}</div>
+                                        <div style="color: #888; margin-top: 4px; font-size: 14px;">${feed.URL}</div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div>';
+                        }
+                        
+                        // Mostrar feeds activos en verde
+                        if (workingFeeds.length > 0) {
+                            html += '<div><div style="color: #00aa00; font-weight: bold; margin-bottom: 8px;">✅ WORKING FEEDS</div>';
+                            workingFeeds.forEach((feed, index) => {
+                                const channelName = extractChannelName(feed.URL);
+                                html += `
+                                    <div style="padding: 8px; border-bottom: 1px solid #333; font-family: 'JetBrains Mono', monospace; font-size: 14px;">
+                                        <div style="color: #00aa00;">✅ ACTIVE - ${channelName}</div>
+                                        <div style="color: #888; margin-top: 4px; font-size: 14px;">${feed.URL}</div>
+                                    </div>
+                                `;
+                            });
+                            html += '</div>';
+                        }
+                        
+                        feedsContent.innerHTML = html || '<div style="color: #888; font-size: 14px;">No feeds configured</div>';
+                    }
+                })
+                .catch(error => {
+                    const feedsContent = document.getElementById('feeds-content-config');
+                    if (feedsContent) {
+                        feedsContent.innerHTML = '<div style="color: #ff4444;">Error loading feeds</div>';
+                    }
+                });
         }
         
         function initializeForms() {

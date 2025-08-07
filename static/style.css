@@ -118,7 +118,6 @@ body {
   align-items: center;
   margin-bottom: 20px;
   padding: 10px 0;
-  border-bottom: 1px solid #333;
 }
 
 .refresh-button {
@@ -212,14 +211,28 @@ body {
 /* EXPANDED CONTENT */
 .article-content {
   background-color: var(--bg-color);
-  padding: 16px 0;
+  padding: 20px 0 16px 20px;
   margin-left: 20px;
   border-left: 2px solid #333;
-  padding-left: 20px;
+  text-align: left;
+}
+
+.article-content p {
+  margin-bottom: 15px;
+  line-height: 1.6;
+  text-align: left;
+  font-family: var(--font-family-mono);
+  font-size: 14px;
+  color: var(--text-color);
+}
+
+.article-content p:last-child {
+  margin-bottom: 0;
 }
 
 .expanded-content {
   max-width: 800px;
+  text-align: left;
 }
 
 .expanded-meta {

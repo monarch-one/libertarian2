@@ -445,7 +445,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             margin: 0; 
             text-align: left;
             width: 100%;
-            padding-top: 170px;
+            padding-top: 130px;
             overflow: hidden;
             position: relative;
         }
@@ -469,11 +469,12 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             top: 25px;
             right: 10px;
             font-size: 11px;
-            color: #00aa00;
+            color: #00ff00;
             font-family: 'JetBrains Mono', monospace;
-            font-weight: 300;
+            font-weight: 400;
             text-align: right;
             line-height: 1.2;
+            text-shadow: 0 0 5px #00ff00;
         }
         .ascii-logo {
             font-size: 12px;
@@ -523,7 +524,6 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             height: 20px;
             background: #000;
             z-index: 1101;
-            border-bottom: 1px solid #333;
         }
         .tab {
             flex: 1;
@@ -831,7 +831,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
     </style>
     <script>
         let selectedIndex = -1;
-        let actualArticleIndex = -1; // Para trackear el artículo real que estamos navegando
+        let currentArticleIndex = 0; // Para trackear cuál artículo estamos viendo en secuencia
         const articles = [];
         let currentPage = 'feeds'; // Variable para rastrear la página activa
         
@@ -854,92 +854,113 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 el.classList.remove('expanded');
             });
             
-            // SIEMPRE mover el artículo al primer lugar (tanto al abrir como al cerrar)
-            moveArticleToTop(index);
-            
-            // Abrir el seleccionado si no estaba abierto
             if (!isCurrentlyExpanded) {
-                // Ahora el artículo está en índice 0
-                const newContent = document.getElementById('content-0');
-                if (newContent) {
-                    newContent.classList.add('expanded');
-                    selectedIndex = 0;
-                    actualArticleIndex = index; // Mantener el tracking del artículo original
+                // Abrir el artículo
+                content.classList.add('expanded');
+                selectedIndex = index;
+                currentArticleIndex = index;
+                
+                // Marcar artículo como leído y agregarlo al stack
+                const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
+                if (articleLine) {
+                    articleLine.classList.add('read');
+                    articles[index].isRead = true;
                     
-                    // Marcar artículo como leído
-                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(0,"]');
-                    if (articleLine) {
-                        articleLine.classList.add('read');
-                        articles[0].isRead = true;
+                    // Si el artículo ya está en el stack, actualizar posición
+                    const existingPos = readStack.indexOf(index);
+                    if (existingPos !== -1) {
+                        currentStackPosition = existingPos;
+                    } else {
+                        // Si es nuevo, agregarlo al stack
+                        addToReadStack(index);
                     }
-                    
-                    // Cargar contenido completo sin límites
-                    loadArticleContent(0);
+                }
+                
+                // Cargar contenido completo
+                loadArticleContent(index);
+                
+                // Scroll al artículo con offset para evitar el header
+                const articleElement = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
+                if (articleElement) {
+                    const rect = articleElement.getBoundingClientRect();
+                    const offset = 160; // Offset aumentado para no cortar tipografías
+                    window.scrollTo({
+                        top: window.scrollY + rect.top - offset,
+                        behavior: 'smooth'
+                    });
                 }
             } else {
-                // Si se está cerrando, mantener seleccionado el artículo (ahora en posición 0)
-                selectedIndex = 0;
-                actualArticleIndex = 0; // Resetear cuando se cierra
-            }
-            
-            // Scroll al principio de la página
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        }
-        
-        function moveArticleToTop(expandedIndex) {
-            const feedsContent = document.getElementById('feeds-content');
-            const articleLines = feedsContent.querySelectorAll('.article-line');
-            
-            if (expandedIndex >= 0 && expandedIndex < articleLines.length) {
-                const expandedArticle = articleLines[expandedIndex];
-                const parentDiv = expandedArticle.parentNode;
-                
-                // Mover el artículo expandido al principio
-                parentDiv.insertBefore(expandedArticle, parentDiv.firstChild);
-                
-                // Reordenar los índices en el array articles y actualizar los IDs
-                const movedArticle = articles.splice(expandedIndex, 1)[0];
-                articles.unshift(movedArticle);
-                
-                // Actualizar todos los índices en los onclick y IDs
-                updateArticleIndices();
-                
-                // Actualizar selectedIndex para que apunte al primer elemento
-                selectedIndex = 0;
+                // Solo cerrar sin mover
+                selectedIndex = index;
             }
         }
         
-        function updateArticleIndices() {
-            const feedsContent = document.getElementById('feeds-content');
-            const articleLines = feedsContent.querySelectorAll('.article-line');
-            
-            articleLines.forEach((line, newIndex) => {
-                // Actualizar onclick
-                line.setAttribute('onclick', 'toggleArticle(' + newIndex + ', event)');
-                
-                // Actualizar ID del contenido
-                const content = line.querySelector('.article-content');
-                if (content) {
-                    content.id = 'content-' + newIndex;
+
+        
+        let readStack = []; // Stack de artículos leídos en orden de lectura
+        let currentStackPosition = 0; // Posición actual en el stack
+        
+        function addToReadStack(index) {
+            // Remover del stack si ya existe
+            readStack = readStack.filter(i => i !== index);
+            // Agregar al principio del stack
+            readStack.unshift(index);
+            // Resetear posición al principio
+            currentStackPosition = 0;
+        }
+        
+        function markAsRead(index) {
+            if (currentPage === 'feeds') {
+                const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
+                if (articleLine) {
+                    articleLine.classList.add('read');
+                    articles[index].isRead = true;
                 }
-                
-                // Actualizar botones
-                const buttons = line.querySelectorAll('[onclick*="saveArticle"], [onclick*="loveArticle"], [onclick*="shareArticle"]');
-                buttons.forEach(button => {
-                    const onclick = button.getAttribute('onclick');
-                    if (onclick.includes('saveArticle')) {
-                        button.setAttribute('onclick', 'saveArticle(' + newIndex + ', event)');
-                    } else if (onclick.includes('loveArticle')) {
-                        button.setAttribute('onclick', 'loveArticle(' + newIndex + ', event)');
-                    } else if (onclick.includes('shareArticle')) {
-                        button.setAttribute('onclick', 'shareArticle(' + newIndex + ', event)');
+            } else {
+                // Para SAVED/LOVED, marcar el contenedor correspondiente
+                const containers = document.querySelectorAll('.article-container');
+                if (containers[index]) {
+                    containers[index].classList.add('read');
+                    // Buscar el artículo original en la lista para marcarlo
+                    const link = containers[index].querySelector('.full-line-link')?.getAttribute('data-link');
+                    if (link) {
+                        const originalIndex = articles.findIndex(a => a.link === link);
+                        if (originalIndex >= 0) {
+                            articles[originalIndex].isRead = true;
+                        }
                     }
-                });
-            });
+                }
+            }
         }
+        
+        function getNextUnreadArticle() {
+            for (let i = 0; i < articles.length; i++) {
+                if (!articles[i].isRead) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        
+        function getPreviousReadArticle() {
+            // Moverse hacia adelante en el stack (hacia artículos más antiguos)
+            if (currentStackPosition < readStack.length - 1) {
+                currentStackPosition++;
+                return readStack[currentStackPosition];
+            }
+            return -1;
+        }
+        
+        function moveToNextInStack() {
+            // Para navegación J - moverse hacia atrás en el stack (artículos más nuevos)
+            if (currentStackPosition > 0) {
+                currentStackPosition--;
+                return readStack[currentStackPosition];
+            }
+            return -1;
+        }
+        
+
         
         // Función mejorada para cargar contenido completo del artículo
         function loadArticleContent(index) {
@@ -988,42 +1009,56 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             // Usar contenido completo si está disponible, sino usar descripción
             let articleText = fullContent || article.description || 'Content not available.';
             
-            // Limpiar HTML pero preservar estructura de párrafos
-            if (!fullContent) {
-                // Convertir elementos de bloque a saltos de línea antes de limpiar
-                articleText = articleText.replace(/<\/p>/gi, '\n\n');
-                articleText = articleText.replace(/<br\s*\/?>/gi, '\n');
-                articleText = articleText.replace(/<\/div>/gi, '\n');
-                articleText = articleText.replace(/<\/h[1-6]>/gi, '\n\n');
+            // Función para formatear texto mejorado
+            function formatText(text) {
+                // Primero preservar elementos de bloque convirtiéndolos a marcadores temporales
+                text = text.replace(/<\/p>/gi, '|||PARAGRAPH|||');
+                text = text.replace(/<br\s*\/?>/gi, '|||BREAK|||');
+                text = text.replace(/<\/div>/gi, '|||PARAGRAPH|||');
+                text = text.replace(/<\/h[1-6]>/gi, '|||PARAGRAPH|||');
                 
                 // Limpiar etiquetas HTML
-                articleText = articleText.replace(/<[^>]*>/g, '');
-                articleText = articleText.replace(/&[^;]+;/g, ' ');
-                articleText = articleText.trim();
+                text = text.replace(/<[^>]*>/g, '');
                 
-                // NO limitar longitud - mostrar contenido completo
-            } else {
-                // Para contenido completo, preservar mejor la estructura
-                articleText = articleText.replace(/<\/p>/gi, '\n\n');
-                articleText = articleText.replace(/<br\s*\/?>/gi, '\n');
-                articleText = articleText.replace(/<\/div>/gi, '\n');
-                articleText = articleText.replace(/<\/h[1-6]>/gi, '\n\n');
-                articleText = articleText.replace(/<[^>]*>/g, '');
-                articleText = articleText.replace(/&[^;]+;/g, ' ');
+                // Decodificar entidades HTML comunes
+                text = text.replace(/&nbsp;/g, ' ');
+                text = text.replace(/&amp;/g, '&');
+                text = text.replace(/&lt;/g, '<');
+                text = text.replace(/&gt;/g, '>');
+                text = text.replace(/&quot;/g, '"');
+                text = text.replace(/&#39;/g, "'");
+                text = text.replace(/&apos;/g, "'");
+                text = text.replace(/&[^;]+;/g, ' ');
+                
+                // Restaurar marcadores como saltos de párrafo
+                text = text.replace(/\|\|\|PARAGRAPH\|\|\|/g, '\n\n');
+                text = text.replace(/\|\|\|BREAK\|\|\|/g, '\n');
+                
+                // Detectar y crear párrafos automáticamente
+                // Buscar oraciones que terminan con punto seguido de mayúscula
+                text = text.replace(/\.\s+([A-ZÁÉÍÓÚÑÜ])/g, '.\n\n$1');
+                
+                // Limpiar espacios múltiples
+                text = text.replace(/\s+/g, ' ');
                 
                 // Limpiar saltos de línea excesivos pero mantener párrafos
-                articleText = articleText.replace(/\n\s*\n\s*\n/g, '\n\n');
-                articleText = articleText.trim();
+                text = text.replace(/\n\s*\n\s*\n+/g, '\n\n');
+                text = text.trim();
+                
+                return text;
             }
             
-            // Convertir saltos de línea a HTML para mostrar correctamente
+            // Aplicar formateo mejorado
+            articleText = formatText(articleText);
+            
+            // Convertir a HTML manteniendo la estructura de párrafos
             if (articleText.includes('\n\n')) {
                 // Si hay párrafos dobles, tratarlos como párrafos separados
                 const paragraphs = articleText.split('\n\n').filter(p => p.trim());
-                articleText = paragraphs.map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+                articleText = paragraphs.map(p => '<p style="margin-bottom: 15px; line-height: 1.6; text-align: left;">' + p.replace(/\n/g, '<br>') + '</p>').join('');
             } else {
                 // Si no hay párrafos dobles, solo reemplazar saltos de línea simples
-                articleText = '<p>' + articleText.replace(/\n/g, '<br>') + '</p>';
+                articleText = '<p style="margin-bottom: 15px; line-height: 1.6; text-align: left;">' + articleText.replace(/\n/g, '<br>') + '</p>';
             }
             
             // Determinar posición de botones según configuración
@@ -1139,60 +1174,44 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 case 'KeyJ':
                     event.preventDefault();
                     if (expandedArticle) {
-                        // Si hay artículo expandido, ir al siguiente y expandirlo moviendo al top
-                        if (actualArticleIndex < totalArticles - 1) {
-                            // Cerrar artículo actual
-                            document.querySelectorAll('.article-content').forEach(el => {
-                                el.classList.remove('expanded');
-                            });
-                            
-                            actualArticleIndex++; // Incrementar el índice del artículo real
-                            
-                            // Expandir el siguiente artículo Y moverlo al top
-                            if (currentPage === 'feeds') {
-                                // Mover artículo al top primero
-                                moveArticleToTop(actualArticleIndex);
-                                
-                                // Ahora está en índice 0, expandirlo
-                                const content = document.getElementById('content-0');
-                                if (content) {
-                                    content.classList.add('expanded');
-                                    selectedIndex = 0; // El índice visual siempre será 0 después del move
-                                    
-                                    // Marcar artículo como leído
-                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(0,"]');
-                                    if (articleLine) {
-                                        articleLine.classList.add('read');
-                                        articles[0].isRead = true;
-                                    }
-                                    
-                                    loadArticleContent(0);
-                                }
-                            } else if (currentPage === 'saved' || currentPage === 'loved') {
-                                selectedIndex = actualArticleIndex;
-                                const container = articleContainers[selectedIndex];
-                                if (container) {
-                                    const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                    const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
-                                    const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
-                                    toggleArticleGeneric(container, contentId, link, true);
-                                }
+                        if (currentPage === 'feeds') {
+                            // Para FEEDS: usar el stack system
+                            let nextIndex = moveToNextInStack();
+                            if (nextIndex === -1) {
+                                nextIndex = getNextUnreadArticle();
                             }
-                            
-                            // Scroll al principio
-                            window.scrollTo({
-                                top: 0,
-                                behavior: 'smooth'
-                            });
-                            
-                            // Highlighting después de abrir el contenido
-                            highlightSelected();
+                            if (nextIndex !== -1) {
+                                toggleArticle(nextIndex, false);
+                            }
+                        } else {
+                            // Para SAVED/LOVED: navegación simple al siguiente
+                            if (selectedIndex < totalArticles - 1) {
+                                selectedIndex++;
+                                const containers = document.querySelectorAll('.article-container');
+                                if (containers[selectedIndex]) {
+                                    // Cerrar todos los artículos
+                                    document.querySelectorAll('.article-content').forEach(el => {
+                                        el.classList.remove('expanded');
+                                    });
+                                    // Abrir el seleccionado
+                                    const content = containers[selectedIndex].querySelector('.article-content');
+                                    if (content) {
+                                        content.classList.add('expanded');
+                                        markAsRead(selectedIndex); // Marcar como leído
+                                        containers[selectedIndex].scrollIntoView({
+                                            behavior: 'smooth',
+                                            block: 'start'
+                                        });
+                                    }
+                                }
+                                highlightSelected();
+                            }
                         }
                     } else {
                         // Navegación normal
                         if (selectedIndex < totalArticles - 1) {
                             selectedIndex++;
-                            actualArticleIndex = selectedIndex; // Sincronizar cuando no hay artículo expandido
+                            currentArticleIndex = selectedIndex;
                             highlightSelected();
                         }
                     }
@@ -1213,73 +1232,54 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 case 'KeyK':
                     event.preventDefault();
                     if (expandedArticle) {
-                        // Si hay artículo expandido, permitir siempre navegación hacia arriba
-                        if (actualArticleIndex > 0) {
-                            // Cerrar artículo actual
-                            document.querySelectorAll('.article-content').forEach(el => {
-                                el.classList.remove('expanded');
-                            });
-                            
-                            actualArticleIndex--; // Decrementar el índice del artículo real
-                            
-                            // Expandir el anterior artículo Y moverlo al top
-                            if (currentPage === 'feeds') {
-                                // Mover artículo al top primero
-                                moveArticleToTop(actualArticleIndex);
-                                
-                                // Ahora está en índice 0, expandirlo
-                                const content = document.getElementById('content-0');
-                                if (content) {
-                                    content.classList.add('expanded');
-                                    selectedIndex = 0; // El índice visual siempre será 0 después del move
-                                    
-                                    // Marcar artículo como leído
-                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(0,"]');
-                                    if (articleLine) {
-                                        articleLine.classList.add('read');
-                                        articles[0].isRead = true;
-                                    }
-                                    
-                                    loadArticleContent(0);
-                                }
-                            } else if (currentPage === 'saved' || currentPage === 'loved') {
-                                selectedIndex = actualArticleIndex;
-                                const container = articleContainers[selectedIndex];
-                                if (container) {
-                                    const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                    const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
-                                    const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
-                                    toggleArticleGeneric(container, contentId, link, true);
-                                }
+                        if (currentPage === 'feeds') {
+                            // Para FEEDS: usar el stack system
+                            const prevIndex = getPreviousReadArticle();
+                            if (prevIndex !== -1) {
+                                toggleArticle(prevIndex, false);
+                            } else {
+                                window.scrollBy({
+                                    top: -window.innerHeight * 0.5,
+                                    behavior: 'smooth'
+                                });
                             }
-                            
-                            // Scroll al principio
-                            window.scrollTo({
-                                top: 0,
-                                behavior: 'smooth'
-                            });
-                            
-                            // Highlighting después de abrir el contenido
-                            highlightSelected();
                         } else {
-                            // Si actualArticleIndex es 0 y hay artículo expandido, hacer scroll hacia arriba para ver artículos anteriores
-                            window.scrollBy({
-                                top: -window.innerHeight * 0.5,
-                                behavior: 'smooth'
-                            });
+                            // Para SAVED/LOVED: navegación simple al anterior
+                            if (selectedIndex > 0) {
+                                selectedIndex--;
+                                const containers = document.querySelectorAll('.article-container');
+                                if (containers[selectedIndex]) {
+                                    // Cerrar todos los artículos
+                                    document.querySelectorAll('.article-content').forEach(el => {
+                                        el.classList.remove('expanded');
+                                    });
+                                    // Abrir el seleccionado
+                                    const content = containers[selectedIndex].querySelector('.article-content');
+                                    if (content) {
+                                        content.classList.add('expanded');
+                                        markAsRead(selectedIndex); // Marcar como leído
+                                        containers[selectedIndex].scrollIntoView({
+                                            behavior: 'smooth',
+                                            block: 'start'
+                                        });
+                                    }
+                                }
+                                highlightSelected();
+                            }
                         }
                     } else {
                         // Navegación normal
                         if (selectedIndex > 0) {
                             selectedIndex--;
-                            actualArticleIndex = selectedIndex; // Sincronizar cuando no hay artículo expandido
+                            currentArticleIndex = selectedIndex;
                             highlightSelected();
                         } else if (selectedIndex === -1 && totalArticles > 0) {
                             selectedIndex = 0;
-                            actualArticleIndex = 0; // Sincronizar
+                            currentArticleIndex = 0;
                             highlightSelected();
                         }
                     }
+                    break;
                     break;
                     
                 case 'Enter':
@@ -2521,11 +2521,51 @@ func fetchFeedArticles(feedURL string) []Article {
 			description = item.Content
 		}
 
+		// Mejorar el nombre de la fuente
+		sourceName := feed.Title
+		if sourceName == "" || sourceName == "YouTube" {
+			// Para YouTube, intentar extraer el nombre del canal
+			if strings.Contains(feedURL, "youtube.com") || strings.Contains(feedURL, "youtu.be") {
+				if strings.Contains(feedURL, "/channel/") {
+					channelMatch := regexp.MustCompile(`/channel/([^/\?]+)`).FindStringSubmatch(feedURL)
+					if len(channelMatch) > 1 {
+						channelID := channelMatch[1]
+						if len(channelID) > 8 {
+							channelID = channelID[:8]
+						}
+						sourceName = fmt.Sprintf("YouTube Channel %s...", channelID)
+					} else {
+						sourceName = "YouTube Channel"
+					}
+				} else if strings.Contains(feedURL, "channel_id=") {
+					channelMatch := regexp.MustCompile(`channel_id=([^&]+)`).FindStringSubmatch(feedURL)
+					if len(channelMatch) > 1 {
+						channelID := channelMatch[1]
+						if len(channelID) > 8 {
+							channelID = channelID[:8]
+						}
+						sourceName = fmt.Sprintf("YouTube Channel %s...", channelID)
+					} else {
+						sourceName = "YouTube Channel"
+					}
+				} else if strings.Contains(feedURL, "user=") {
+					userMatch := regexp.MustCompile(`user=([^&]+)`).FindStringSubmatch(feedURL)
+					if len(userMatch) > 1 {
+						sourceName = fmt.Sprintf("YouTube @%s", userMatch[1])
+					} else {
+						sourceName = "YouTube Channel"
+					}
+				} else {
+					sourceName = "YouTube Channel"
+				}
+			}
+		}
+
 		article := Article{
 			Title:       item.Title,
 			Link:        item.Link,
 			Date:        date,
-			Source:      feed.Title,
+			Source:      sourceName,
 			Description: description,
 		}
 		articles = append(articles, article)
@@ -3106,6 +3146,16 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             border-top: 1px dashed #333;
             padding-top: 20px;
         }
+        
+        .loading-dots {
+            animation: loadingDots 1.5s infinite;
+        }
+        
+        @keyframes loadingDots {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            80%, 100% { opacity: 0; }
+        }
     </style>
     <script>
         function handleLogin(event) {
@@ -3116,7 +3166,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             const errorDiv = document.getElementById('login-error');
             
             if (!username || !password) {
-                errorDiv.textContent = 'Por favor ingresa usuario y contraseña';
+                errorDiv.textContent = 'Please enter username and password';
                 errorDiv.style.display = 'block';
                 return;
             }
@@ -3124,7 +3174,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             errorDiv.style.display = 'none';
             
             const button = document.getElementById('login-button');
-            button.textContent = 'ACCEDIENDO...';
+            button.innerHTML = 'LOADING<span class="loading-dots">...</span>';
             button.disabled = true;
             
             fetch('/api/login', {
@@ -3154,13 +3204,13 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
                     }
                     window.location.href = '/';
                 } else {
-                    throw new Error(data.message || 'Error de autenticación');
+                    throw new Error(data.message || 'Authentication error');
                 }
             })
             .catch(error => {
                 errorDiv.textContent = error.message;
                 errorDiv.style.display = 'block';
-                button.textContent = 'ACCEDER';
+                button.textContent = 'LOGIN';
                 button.disabled = false;
                 document.getElementById('password').value = '';
                 document.getElementById('password').focus();
