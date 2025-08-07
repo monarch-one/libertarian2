@@ -111,31 +111,31 @@
             </div>
             
             <div class="config-section">
-                <h3>📥 IMPORTAR FEEDS</h3>
+                <h3>📥 IMPORT FEEDS</h3>
                 <div class="import-section">
                     <form id="opml-upload-form" enctype="multipart/form-data">
                         <div class="upload-area">
                             <input type="file" id="opml-file" name="opml" accept=".opml,.xml" style="display: none;">
                             <button type="button" onclick="document.getElementById('opml-file').click()" class="upload-button">
-                                📁 SELECCIONAR ARCHIVO OPML
+                                📁 SELECT OPML FILE
                             </button>
                             <span id="file-name" class="file-name"></span>
                         </div>
-                        <button type="submit" class="import-button">📥 IMPORTAR FEEDS</button>
+                        <button type="submit" class="import-button">📥 IMPORT FEEDS</button>
                     </form>
                     
                     <div class="manual-add">
-                        <h4>➕ AGREGAR FEED INDIVIDUAL</h4>
+                        <h4>➕ ADD INDIVIDUAL FEED</h4>
                         <form id="manual-feed-form">
-                            <input type="url" id="feed-url" placeholder="https://ejemplo.com/rss.xml" required>
-                            <button type="submit">AGREGAR</button>
+                            <input type="url" id="feed-url" placeholder="https://example.com/rss.xml" required>
+                            <button type="submit">ADD FEED</button>
                         </form>
                     </div>
                 </div>
             </div>
             
             <div class="config-section">
-                <h3>📋 GESTIÓN DE FEEDS</h3>
+                <h3>📋 FEED MANAGEMENT</h3>
                 <div class="feeds-management">
                     <div class="feeds-stats">
                         <span id="total-feeds">Total: --</span>
@@ -173,6 +173,8 @@
         let currentFavorites = [];
         let currentSaved = [];
         let activeTab = 'feeds';
+        let currentOpenArticle = null; // Para rastrear el artículo actualmente abierto
+        let currentSelectedIndex = -1; // Para navegación por teclado
         
         // Tab Management
         function switchTab(tabName) {
@@ -251,26 +253,50 @@
                 favorites.forEach(fav => {
                     html += `
                         <div class="article-container">
-                            <div class="article-line">
+                            <div class="article-line" onclick="toggleArticleContent(this, '${fav.Link}')">
                                 <span class="article-date">${fav.Date}</span>
                                 <span class="article-source">${fav.Source}</span>
-                                <span class="article-title"><a href="${fav.Link}" target="_blank">${fav.Title}</a></span>
-                                <button type="button" class="save-button saved" onclick="removeFavorite('${fav.Link}')">SAVED</button>
+                                <span class="article-title">${fav.Title}</span>
+                                <button type="button" class="save-button saved" 
+                                    data-title="${fav.Title}" data-link="${fav.Link}" data-date="${fav.Date}" 
+                                    data-source="${fav.Source}" 
+                                    onclick="event.stopPropagation(); removeFavorite('${fav.Link}')">SAVED</button>
+                            </div>
+                            <div class="article-content" style="display: none;">
+                                <div class="expanded-meta">
+                                    <span class="meta-date">${fav.Date}</span>
+                                    <span class="meta-source">${fav.Source}</span>
+                                </div>
+                                <div class="action-buttons">
+                                    <button type="button" class="action-save saved" onclick="removeFavorite('${fav.Link}')">SAVED</button>
+                                    <a href="${fav.Link}" target="_blank" class="read-original">🔗 LEER ORIGINAL</a>
+                                </div>
+                                <div class="article-description">${fav.Description || 'No hay descripción disponible.'}</div>
                             </div>
                         </div>
                     `;
                 });
                 container.innerHTML = html;
+                
+                // Resetear navegación cuando se cargan los favoritos
+                currentSelectedIndex = -1;
+                currentOpenArticle = null;
+                
             } catch (error) {
                 container.innerHTML = '<p class="error-message">Error loading favorites.</p>';
             }
         }
         
         function loadSaved() {
+            // Usar la misma lógica que loadFavorites para consistencia
             loadFavorites().then(() => {
                 const savedContainer = document.getElementById('saved-list');
-                const favoritesHtml = document.getElementById('favorites-list').innerHTML;
-                savedContainer.innerHTML = favoritesHtml.replace(/favoritos/g, 'artículos guardados');
+                const favoritesContainer = document.getElementById('favorites-list');
+                savedContainer.innerHTML = favoritesContainer.innerHTML;
+                
+                // Resetear navegación cuando se cargan los guardados
+                currentSelectedIndex = -1;
+                currentOpenArticle = null;
             });
         }
         
@@ -424,7 +450,7 @@
                     formData.append('opml', fileInput.files[0]);
                     
                     try {
-                        const response = await fetch('/add', {
+                        const response = await fetch('/upload-opml', {
                             method: 'POST',
                             body: formData
                         });
@@ -449,7 +475,7 @@
                     
                     const feedUrl = document.getElementById('feed-url').value;
                     const formData = new FormData();
-                    formData.append('feed_url', feedUrl);
+                    formData.append('url', feedUrl);
                     
                     try {
                         const response = await fetch('/add', {
@@ -543,12 +569,161 @@
                             if (feedInput) feedInput.focus();
                         }, 100);
                         break;
+                    case 'j': // Navegación hacia abajo / cerrar artículo
+                        e.preventDefault();
+                        handleJKeyPress();
+                        break;
+                    case 'k': // Navegación hacia arriba
+                        e.preventDefault();
+                        handleKKeyPress();
+                        break;
+                    case 'enter': // Abrir/cerrar artículo
+                        e.preventDefault();
+                        handleEnterKeyPress();
+                        break;
+                    case ' ': // Space - marcar favorito
+                        e.preventDefault();
+                        handleSpaceKeyPress();
+                        break;
                     case '?':
                         e.preventDefault();
                         toggleShortcuts();
                         break;
                 }
             });
+        }
+        
+        // Funciones de navegación por teclado
+        function handleJKeyPress() {
+            if (currentOpenArticle) {
+                // Si hay un artículo abierto, cerrarlo y marcarlo como leído si está en favorites/saved
+                closeCurrentArticleAndMarkRead();
+                navigateToNext();
+            } else {
+                // Navegar al siguiente artículo
+                navigateToNext();
+            }
+        }
+        
+        function handleKKeyPress() {
+            if (currentOpenArticle) {
+                // Si hay un artículo abierto, cerrarlo
+                closeCurrentArticle();
+            } else {
+                // Navegar al artículo anterior
+                navigateToPrevious();
+            }
+        }
+        
+        function handleEnterKeyPress() {
+            const articles = getCurrentTabArticles();
+            if (currentSelectedIndex >= 0 && currentSelectedIndex < articles.length) {
+                const articleLine = getArticleLineByIndex(currentSelectedIndex);
+                if (articleLine) {
+                    const url = articleLine.getAttribute('data-url') || articleLine.querySelector('.article-title a')?.href;
+                    toggleArticleContent(articleLine, url);
+                }
+            }
+        }
+        
+        function handleSpaceKeyPress() {
+            const articles = getCurrentTabArticles();
+            if (currentSelectedIndex >= 0 && currentSelectedIndex < articles.length) {
+                const articleLine = getArticleLineByIndex(currentSelectedIndex);
+                if (articleLine) {
+                    const saveButton = articleLine.querySelector('.save-button');
+                    if (saveButton) {
+                        saveButton.click();
+                    }
+                }
+            }
+        }
+        
+        function closeCurrentArticleAndMarkRead() {
+            if (currentOpenArticle) {
+                const content = currentOpenArticle.parentElement.querySelector('.article-content');
+                if (content) {
+                    content.style.display = 'none';
+                }
+                
+                // Remover clase de artículo seleccionado
+                currentOpenArticle.classList.remove('article-selected');
+                
+                // Si estamos en favorites o saved, marcar como leído (remover de la lista)
+                if (activeTab === 'favorites' || activeTab === 'saved') {
+                    markArticleAsReadInFavorites(currentOpenArticle);
+                }
+                
+                currentOpenArticle = null;
+            }
+        }
+        
+        function closeCurrentArticle() {
+            if (currentOpenArticle) {
+                const content = currentOpenArticle.parentElement.querySelector('.article-content');
+                if (content) {
+                    content.style.display = 'none';
+                }
+                currentOpenArticle.classList.remove('article-selected');
+                currentOpenArticle = null;
+            }
+        }
+        
+        function navigateToNext() {
+            const articles = getCurrentTabArticles();
+            if (articles.length === 0) return;
+            
+            currentSelectedIndex = Math.min(currentSelectedIndex + 1, articles.length - 1);
+            updateArticleSelection();
+        }
+        
+        function navigateToPrevious() {
+            const articles = getCurrentTabArticles();
+            if (articles.length === 0) return;
+            
+            currentSelectedIndex = Math.max(currentSelectedIndex - 1, 0);
+            updateArticleSelection();
+        }
+        
+        function getCurrentTabArticles() {
+            let containerId;
+            switch(activeTab) {
+                case 'feeds': containerId = 'feeds-list'; break;
+                case 'favorites': containerId = 'favorites-list'; break;
+                case 'saved': containerId = 'saved-list'; break;
+                default: return [];
+            }
+            
+            const container = document.getElementById(containerId);
+            return container ? Array.from(container.querySelectorAll('.article-line')) : [];
+        }
+        
+        function getArticleLineByIndex(index) {
+            const articles = getCurrentTabArticles();
+            return articles[index] || null;
+        }
+        
+        function updateArticleSelection() {
+            // Remover selección anterior
+            document.querySelectorAll('.article-line').forEach(line => {
+                line.classList.remove('article-selected');
+            });
+            
+            // Agregar selección actual
+            const currentArticle = getArticleLineByIndex(currentSelectedIndex);
+            if (currentArticle) {
+                currentArticle.classList.add('article-selected');
+                currentArticle.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        function markArticleAsReadInFavorites(articleLine) {
+            // Encontrar el link del artículo para removerlo de favoritos
+            const titleElement = articleLine.querySelector('.article-title a');
+            if (titleElement) {
+                const link = titleElement.href;
+                removeFavorite(link);
+            }
         }
         
         // Article functions
@@ -626,10 +801,29 @@
             const container = element.parentElement;
             const content = container.querySelector('.article-content');
             
-            if (content.style.display === 'none') {
+            // Si hay otro artículo abierto, cerrarlo primero
+            if (currentOpenArticle && currentOpenArticle !== element) {
+                const oldContent = currentOpenArticle.parentElement.querySelector('.article-content');
+                if (oldContent) {
+                    oldContent.style.display = 'none';
+                }
+                currentOpenArticle.classList.remove('article-selected');
+            }
+            
+            if (content.style.display === 'none' || content.style.display === '') {
+                // Abrir artículo
                 content.style.display = 'block';
+                element.classList.add('article-selected');
+                currentOpenArticle = element;
+                
+                // Actualizar el índice seleccionado
+                const articles = getCurrentTabArticles();
+                currentSelectedIndex = articles.indexOf(element);
             } else {
+                // Cerrar artículo
                 content.style.display = 'none';
+                element.classList.remove('article-selected');
+                currentOpenArticle = null;
             }
         }
         

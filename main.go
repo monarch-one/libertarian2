@@ -262,10 +262,40 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-func loadFeeds() []Feed {
-	file, err := os.Open("feeds.json")
+func getUserFromRequest(r *http.Request) string {
+	cookie, err := r.Cookie("session_id")
 	if err != nil {
-		// Si no existe feeds.json, crear algunos feeds de prueba
+		log.Printf("🍪 No session_id cookie found: %v", err)
+		return ""
+	}
+
+	log.Printf("🍪 Found session_id cookie: %s", cookie.Value)
+
+	if username, valid := validateSession(cookie.Value); valid {
+		log.Printf("✅ Valid session for user: %s", username)
+		return username
+	}
+
+	log.Printf("❌ Invalid session for cookie: %s", cookie.Value)
+	return ""
+}
+
+func getFeedsFilename(username string) string {
+	if username == "" {
+		return "feeds.json" // fallback para compatibilidad
+	}
+	return fmt.Sprintf("feeds_%s.json", username)
+}
+
+func loadFeeds() []Feed {
+	return loadFeedsForUser("")
+}
+
+func loadFeedsForUser(username string) []Feed {
+	filename := getFeedsFilename(username)
+	file, err := os.Open(filename)
+	if err != nil {
+		// Si no existe el archivo de feeds del usuario, crear algunos feeds de prueba
 		return []Feed{
 			{"https://feeds.feedburner.com/oreilly/radar", true},
 			{"https://rss.cnn.com/rss/edition.rss", true},
@@ -279,26 +309,48 @@ func loadFeeds() []Feed {
 }
 
 func saveFeed(feed Feed) error {
-	feeds := loadFeeds()
+	return saveFeedForUser(feed, "")
+}
+
+func saveFeedForUser(feed Feed, username string) error {
+	log.Printf("💾 Attempting to save feed for user '%s': %s", username, feed.URL)
+
+	feeds := loadFeedsForUser(username)
 	for _, f := range feeds {
 		if f.URL == feed.URL {
+			log.Printf("⏭️  Feed already exists for user '%s': %s", username, feed.URL)
 			return nil
 		}
 	}
 	feeds = append(feeds, feed)
 
-	file, err := os.Create("feeds.json")
+	filename := getFeedsFilename(username)
+	log.Printf("📁 Saving to file: %s", filename)
+
+	file, err := os.Create(filename)
 	if err != nil {
+		log.Printf("❌ Error creating file %s: %v", filename, err)
 		return err
 	}
 	defer file.Close()
 
-	return json.NewEncoder(file).Encode(feeds)
+	if err := json.NewEncoder(file).Encode(feeds); err != nil {
+		log.Printf("❌ Error encoding feeds to %s: %v", filename, err)
+		return err
+	}
+
+	log.Printf("✅ Successfully saved feed to %s", filename)
+	return nil
 }
 
 // Función para guardar toda la lista de feeds
 func saveFeeds(feeds []Feed) error {
-	file, err := os.Create("feeds.json")
+	return saveFeedsForUser(feeds, "")
+}
+
+func saveFeedsForUser(feeds []Feed, username string) error {
+	filename := getFeedsFilename(username)
+	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
@@ -486,7 +538,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         .subtitle {
             font-size: 10px;
-            color: #888;
+            color: #ffff00;
             text-align: center;
             margin-top: 5px;
         }
@@ -778,6 +830,115 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .feeds-list {
             margin: 10px 0;
         }
+        
+        /* Import section styles */
+        .import-section {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px dashed #00ff00;
+            border-radius: 8px;
+        }
+        .upload-area {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .upload-button {
+            background: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+        .upload-button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        .import-button {
+            background: #000;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            border-radius: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            width: 100%;
+        }
+        .import-button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        .manual-add {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+        }
+        .manual-add h4 {
+            margin: 0 0 10px 0;
+            color: #00ff00;
+            font-size: 13px;
+        }
+        .manual-add input[type="url"] {
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            padding: 6px 10px;
+            width: 70%;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        .manual-add button {
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+        .manual-add button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        .file-name {
+            display: block;
+            color: #888;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        .feeds-management {
+            margin: 15px 0;
+        }
+        .feeds-stats {
+            margin-bottom: 10px;
+            color: #888;
+            font-size: 12px;
+        }
+        .feeds-stats span {
+            margin-right: 15px;
+        }
+        .management-actions button {
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            margin-right: 10px;
+        }
+        .management-actions button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
         .feed-item {
             display: flex;
             align-items: center;
@@ -829,13 +990,11 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             font-size: 14px;
         }
     </style>
+    
+    <!-- JAVASCRIPT PROBLEMÁTICO COMENTADO TEMPORALMENTE 
     <script>
-        let selectedIndex = -1;
-        let currentArticleIndex = 0; // Para trackear cuál artículo estamos viendo en secuencia
-        const articles = [];
-        let currentPage = 'feeds'; // Variable para rastrear la página activa
-        
-        function toggleArticle(index, event) {
+    /*
+            console.log('toggleArticle called:', index, event);
             if (event) {
                 // Si es doble clic o Ctrl+clic, abrir enlace
                 if (event.detail === 2 || event.ctrlKey) {
@@ -1114,7 +1273,14 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                               '</div>';
         }
         
-        document.addEventListener('keydown', function(event) {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== DOM Content Loaded - Initializing ===');
+            
+            // Agregar event listener para navegación por teclado
+            document.addEventListener('keydown', function(event) {
+                console.log('Key pressed:', event.code, event.key);
+                console.log('Current page:', currentPage);
+                console.log('Selected index:', selectedIndex);
             // Usar la variable global currentPage en lugar de buscar en el DOM
             let totalArticles;
             let articleContainers;
@@ -1150,10 +1316,17 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                         } else if (currentPage === 'saved' || currentPage === 'loved') {
                             const container = articleContainers[selectedIndex];
                             if (container) {
-                                const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
-                                const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
-                                toggleArticleGeneric(container, contentId, link);
+                                const articleLine = container.querySelector('.article-line');
+                                if (articleLine) {
+                                    const onclickAttr = articleLine.getAttribute('onclick');
+                                    const match = onclickAttr.match(/toggleArticleContent\(this, '([^']+)'/);
+                                    if (match) {
+                                        const link = match[1];
+                                        const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                        const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
+                                        toggleArticleGeneric(container, contentId, link);
+                                    }
+                                }
                             }
                         }
                     }
@@ -1173,9 +1346,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     
                 case 'KeyJ':
                     event.preventDefault();
-                    if (expandedArticle) {
-                        if (currentPage === 'feeds') {
-                            // Para FEEDS: usar el stack system
+                    if (currentPage === 'feeds') {
+                        // Para FEEDS: lógica original
+                        if (expandedArticle) {
                             let nextIndex = moveToNextInStack();
                             if (nextIndex === -1) {
                                 nextIndex = getNextUnreadArticle();
@@ -1184,35 +1357,47 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                                 toggleArticle(nextIndex, false);
                             }
                         } else {
-                            // Para SAVED/LOVED: navegación simple al siguiente
                             if (selectedIndex < totalArticles - 1) {
                                 selectedIndex++;
-                                const containers = document.querySelectorAll('.article-container');
-                                if (containers[selectedIndex]) {
-                                    // Cerrar todos los artículos
-                                    document.querySelectorAll('.article-content').forEach(el => {
-                                        el.classList.remove('expanded');
-                                    });
-                                    // Abrir el seleccionado
-                                    const content = containers[selectedIndex].querySelector('.article-content');
-                                    if (content) {
-                                        content.classList.add('expanded');
-                                        markAsRead(selectedIndex); // Marcar como leído
-                                        containers[selectedIndex].scrollIntoView({
-                                            behavior: 'smooth',
-                                            block: 'start'
-                                        });
-                                    }
-                                }
+                                currentArticleIndex = selectedIndex;
                                 highlightSelected();
                             }
                         }
-                    } else {
-                        // Navegación normal
-                        if (selectedIndex < totalArticles - 1) {
-                            selectedIndex++;
-                            currentArticleIndex = selectedIndex;
-                            highlightSelected();
+                    } else if (currentPage === 'saved' || currentPage === 'loved') {
+                        // Para SAVED/LOVED: nueva lógica unificada
+                        const articleLines = document.querySelectorAll('#' + currentPage + '-articles-list .article-line');
+                        
+                        if (expandedArticle) {
+                            // Si hay un artículo abierto, cerrarlo y marcar como leído
+                            const currentLine = document.querySelector('.article-line.article-selected');
+                            if (currentLine) {
+                                const content = currentLine.parentElement.querySelector('.article-content');
+                                if (content) {
+                                    content.style.display = 'none';
+                                }
+                                currentLine.classList.remove('article-selected');
+                                
+                                // Obtener el link para remover de favoritos (marcar como leído)
+                                const onclickAttr = currentLine.getAttribute('onclick');
+                                if (onclickAttr) {
+                                    const match = onclickAttr.match(/toggleArticleContent\(this, '([^']+)'/);
+                                    if (match) {
+                                        console.log('Marking as read and removing:', match[1]);
+                                        if (currentPage === 'saved') {
+                                            removeFavoriteFromSaved(match[1]);
+                                        } else {
+                                            removeFavoriteFromLoved(match[1]);
+                                        }
+                                    }
+                                }
+                            }
+                            expandedArticle = null;
+                        } else {
+                            // Navegar al siguiente artículo sin expandir
+                            if (selectedIndex < articleLines.length - 1) {
+                                selectedIndex++;
+                                highlightSelected();
+                            }
                         }
                     }
                     break;
@@ -1412,7 +1597,85 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             
             // Manejar navegación en config
             handleConfigKeyDown(event);
-        });
+            }); // Cierre del event listener de keydown
+            
+            // Función para actualizar fecha y hora
+            function updateDateTime() {
+                const now = new Date();
+                const dateOptions = { 
+                    weekday: 'short', 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                };
+                const timeOptions = { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: false
+                };
+                
+                const dateElement = document.getElementById('current-date');
+                const timeElement = document.getElementById('current-time');
+                
+                if (dateElement && timeElement) {
+                    dateElement.textContent = now.toLocaleDateString('es-ES', dateOptions);
+                    timeElement.textContent = now.toLocaleTimeString('es-ES', timeOptions);
+                }
+            }
+            
+            // Actualizar inmediatamente
+            updateDateTime();
+            
+            // Actualizar cada segundo
+            setInterval(updateDateTime, 1000);
+            
+            // Recopilar información de artículos
+            document.querySelectorAll('.article-container').forEach((container, index) => {
+                const span = container.querySelector('.full-line-link');
+                const meta = container.querySelector('.meta').textContent;
+                const title = container.querySelector('.title').textContent;
+                
+                const parts = meta.split(' | ');
+                articles.push({
+                    title: title,
+                    date: parts[0] || '',
+                    source: parts[1] || '',
+                    link: span.getAttribute('data-link'),
+                    description: span.getAttribute('data-description') || '',
+                    isRead: false,
+                    isSaved: false,
+                    isLoved: false
+                });
+            });
+            
+            // Actualizar contador de feeds
+            const feedsCount = document.getElementById('feeds-count');
+            if (feedsCount) {
+                feedsCount.textContent = articles.length > 0 ? '(' + articles.length + ')' : '';
+            }
+            
+            // Inicializar selección en el primer artículo
+            if (articles.length > 0) {
+                selectedIndex = 0;
+                highlightSelected();
+            }
+            
+            // Cargar configuración de posición de botones
+            const savedPosition = localStorage.getItem('buttonsPosition') || 'right';
+            const buttonsSelect = document.getElementById('buttonsConfig');
+            const buttonsModalSelect = document.getElementById('buttonsConfigModal');
+            if (buttonsSelect) {
+                buttonsSelect.value = savedPosition;
+            }
+            if (buttonsModalSelect) {
+                buttonsModalSelect.value = savedPosition;
+            }
+            
+            // Configurar handlers para importación
+            setupImportHandlers();
+            
+        }); // Cierre del DOMContentLoaded principal
         
         function highlightSelected() {
             // Quitar highlight previo de todas las páginas
@@ -1643,123 +1906,175 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         
         function updateLovedList() {
             const lovedList = document.getElementById('loved-articles-list');
-            const lovedArticles = articles.filter(article => article.isLoved);
             
-            // Actualizar contador en la pestaña
-            const lovedCount = document.getElementById('loved-count');
-            if (lovedCount) {
-                lovedCount.textContent = lovedArticles.length > 0 ? '(' + lovedArticles.length + ')' : '';
-            }
-            
-            if (lovedArticles.length === 0) {
-                lovedList.innerHTML = '<p style="color: #888;">No favorite articles yet.</p>';
-            } else {
-                let listHTML = '';
-                lovedArticles.forEach((article, index) => {
-                    const contentId = 'content-loved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
-                    // Limpiar completamente la descripción para evitar problemas visuales
-                    let cleanDescription = (article.description || '');
-                    // Remover todas las etiquetas HTML incluyendo imágenes
-                    cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
-                    // Remover entidades HTML 
-                    cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
-                    // Remover caracteres especiales y texto truncado
-                    cleanDescription = cleanDescription.replace(/\[\.\.\.\"?>.*$/g, '');
-                    cleanDescription = cleanDescription.replace(/Comments.*$/g, '');
-                    // Remover caracteres de control y problemáticos
-                    cleanDescription = cleanDescription.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-                    // Remover caracteres especiales que causan problemas visuales
-                    cleanDescription = cleanDescription.replace(/[^\w\s\.\,\!\?\:\;\-\(\)\'\"\u00C0-\u00FF]/g, ' ');
-                    // Limpiar espacios múltiples
-                    cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
-                    // Escapar comillas para HTML
-                    cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            // Obtener artículos favoritos desde el servidor
+            fetch('/api/favorites')
+                .then(response => response.json())
+                .then(favorites => {
+                    // Actualizar contador en la pestaña
+                    const lovedCount = document.getElementById('loved-count');
+                    if (lovedCount) {
+                        lovedCount.textContent = favorites.length > 0 ? '(' + favorites.length + ')' : '';
+                    }
                     
-                    listHTML += '<div class="article-container">' +
-                               '<div class="article-line">' +
-                               '<span class="full-line-link" data-link="' + article.link + '" data-description="' + cleanDescription + '">' +
-                               '<span class="meta">' + article.date + ' | ' + article.source + ' | </span>' +
-                               '<span class="title">' + article.title + '</span>' +
-                               '</span>' +
-                               '</div>' +
-                               '<div id="' + contentId + '" class="article-content"></div>' +
-                               '</div>';
+                    if (favorites.length === 0) {
+                        lovedList.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No favorite articles yet.</p>';
+                        return;
+                    }
+                    
+                    let listHTML = '';
+                    favorites.forEach((fav, index) => {
+                        const contentId = 'content-loved-' + index;
+                        // Limpiar descripción
+                        let cleanDescription = (fav.Description || 'No hay descripción disponible.');
+                        cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
+                        cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
+                        cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
+                        cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        
+                        listHTML += '<div class="article-container">' +
+                                   '<div class="article-line" onclick="toggleArticleContent(this, \'' + fav.Link + '\', \'loved\')">' +
+                                   '<span class="article-date">' + fav.Date + '</span>' +
+                                   '<span class="article-source">' + fav.Source + '</span>' +
+                                   '<span class="article-title">' + fav.Title + '</span>' +
+                                   '<button type="button" class="save-button saved" onclick="event.stopPropagation(); removeFavoriteFromLoved(\'' + fav.Link + '\')">SAVED</button>' +
+                                   '</div>' +
+                                   '<div id="' + contentId + '" class="article-content" style="display: none;">' +
+                                   '<div class="expanded-meta">' +
+                                   '<span class="meta-date">' + fav.Date + '</span>' +
+                                   '<span class="meta-source">' + fav.Source + '</span>' +
+                                   '</div>' +
+                                   '<div class="action-buttons">' +
+                                   '<button type="button" class="action-save saved" onclick="removeFavoriteFromLoved(\'' + fav.Link + '\')">SAVED</button>' +
+                                   '<a href="' + fav.Link + '" target="_blank" class="read-original">🔗 LEER ORIGINAL</a>' +
+                                   '</div>' +
+                                   '<div class="article-description">' + cleanDescription + '</div>' +
+                                   '</div>' +
+                                   '</div>';
+                    });
+                    lovedList.innerHTML = listHTML;
+                })
+                .catch(error => {
+                    lovedList.innerHTML = '<p style="color: #ff6b6b; text-align: center; padding: 40px;">Error loading favorites.</p>';
+                    console.error('Error loading favorites:', error);
                 });
-                lovedList.innerHTML = listHTML;
-            }
         }
         
         function updateSavedList() {
             const savedList = document.getElementById('saved-articles-list');
-            const savedArticles = articles.filter(article => article.isSaved);
             
-            // Actualizar contador en la pestaña
-            const savedCount = document.getElementById('saved-count');
-            if (savedCount) {
-                savedCount.textContent = savedArticles.length > 0 ? '(' + savedArticles.length + ')' : '';
-            }
-            
-            if (savedArticles.length === 0) {
-                savedList.innerHTML = '<p style="color: #888;">No saved articles yet.</p>';
-            } else {
-                let listHTML = '';
-                savedArticles.forEach((article, index) => {
-                    const contentId = 'content-saved-' + btoa(article.link).replace(/=/g, '').substring(0, 10);
-                    // Limpiar completamente la descripción para evitar problemas visuales
-                    let cleanDescription = (article.description || '');
-                    // Remover todas las etiquetas HTML incluyendo imágenes
-                    cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
-                    // Remover entidades HTML 
-                    cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
-                    // Remover caracteres especiales y texto truncado
-                    cleanDescription = cleanDescription.replace(/\[\.\.\.\"?>.*$/g, '');
-                    cleanDescription = cleanDescription.replace(/Comments.*$/g, '');
-                    // Remover caracteres de control y problemáticos
-                    cleanDescription = cleanDescription.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
-                    // Remover caracteres especiales que causan problemas visuales
-                    cleanDescription = cleanDescription.replace(/[^\w\s\.\,\!\?\:\;\-\(\)\'\"\u00C0-\u00FF]/g, ' ');
-                    // Limpiar espacios múltiples
-                    cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
-                    // Escapar comillas para HTML
-                    cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            // Usar la misma lógica que updateLovedList para consistencia
+            fetch('/api/favorites')
+                .then(response => response.json())
+                .then(favorites => {
+                    // Actualizar contador en la pestaña
+                    const savedCount = document.getElementById('saved-count');
+                    if (savedCount) {
+                        savedCount.textContent = favorites.length > 0 ? '(' + favorites.length + ')' : '';
+                    }
                     
-                    listHTML += '<div class="article-container">' +
-                               '<div class="article-line">' +
-                               '<span class="full-line-link" data-link="' + article.link + '" data-description="' + cleanDescription + '">' +
-                               '<span class="meta">' + article.date + ' | ' + article.source + ' | </span>' +
-                               '<span class="title">' + article.title + '</span>' +
-                               '</span>' +
-                               '</div>' +
-                               '<div id="' + contentId + '" class="article-content"></div>' +
-                               '</div>';
+                    if (favorites.length === 0) {
+                        savedList.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No saved articles yet.</p>';
+                        return;
+                    }
+                    
+                    let listHTML = '';
+                    favorites.forEach((fav, index) => {
+                        const contentId = 'content-saved-' + index;
+                        // Limpiar descripción
+                        let cleanDescription = (fav.Description || 'No hay descripción disponible.');
+                        cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
+                        cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
+                        cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
+                        cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        
+                        listHTML += '<div class="article-container">' +
+                                   '<div class="article-line" onclick="toggleArticleContent(this, \'' + fav.Link + '\', \'saved\')">' +
+                                   '<span class="article-date">' + fav.Date + '</span>' +
+                                   '<span class="article-source">' + fav.Source + '</span>' +
+                                   '<span class="article-title">' + fav.Title + '</span>' +
+                                   '<button type="button" class="save-button saved" onclick="event.stopPropagation(); removeFavoriteFromSaved(\'' + fav.Link + '\')">SAVED</button>' +
+                                   '</div>' +
+                                   '<div id="' + contentId + '" class="article-content" style="display: none;">' +
+                                   '<div class="expanded-meta">' +
+                                   '<span class="meta-date">' + fav.Date + '</span>' +
+                                   '<span class="meta-source">' + fav.Source + '</span>' +
+                                   '</div>' +
+                                   '<div class="action-buttons">' +
+                                   '<button type="button" class="action-save saved" onclick="removeFavoriteFromSaved(\'' + fav.Link + '\')">SAVED</button>' +
+                                   '<a href="' + fav.Link + '" target="_blank" class="read-original">🔗 LEER ORIGINAL</a>' +
+                                   '</div>' +
+                                   '<div class="article-description">' + cleanDescription + '</div>' +
+                                   '</div>' +
+                                   '</div>';
+                    });
+                    savedList.innerHTML = listHTML;
+                })
+                .catch(error => {
+                    savedList.innerHTML = '<p style="color: #ff6b6b; text-align: center; padding: 40px;">Error loading saved articles.</p>';
+                    console.error('Error loading saved articles:', error);
                 });
-                savedList.innerHTML = listHTML;
-            }
         }
         
-        function removeLoved(articleLink) {
-            // Encontrar y quitar de favoritos
-            articles.forEach(article => {
-                if (article.link === articleLink) {
-                    article.isLoved = false;
-                    // Actualizar botón si existe
-                    const button = document.getElementById('loved-btn-' + articles.indexOf(article));
-                    if (button) {
-                        button.textContent = '[MARCAR FAV]';
-                        button.style.color = '#00ff00';
+        // Funciones auxiliares para remover favoritos
+        function removeFavoriteFromLoved(link) {
+            removeFavoriteFromAPI(link, function() {
+                updateLovedList();
+            });
+        }
+        
+        function removeFavoriteFromSaved(link) {
+            removeFavoriteFromAPI(link, function() {
+                updateSavedList(); 
+            });
+        }
+        
+        function removeFavoriteFromAPI(link, callback) {
+            // Hacer petición al servidor para remover favorito
+            // Por ahora, simular la remoción
+            console.log('Removing favorite:', link);
+            if (callback) callback();
+        }
+        
+        // Función mejorada para toggle article content
+        function toggleArticleContent(element, url, context) {
+            const container = element.parentElement;
+            const content = container.querySelector('.article-content');
+            
+            // Si hay otro artículo abierto, cerrarlo primero
+            document.querySelectorAll('.article-line').forEach(line => {
+                if (line !== element && line.classList.contains('article-selected')) {
+                    const otherContent = line.parentElement.querySelector('.article-content');
+                    if (otherContent) {
+                        otherContent.style.display = 'none';
                     }
+                    line.classList.remove('article-selected');
                 }
             });
-            updateLovedList();
+            
+            if (content.style.display === 'none' || content.style.display === '') {
+                // Abrir artículo
+                content.style.display = 'block';
+                element.classList.add('article-selected');
+                
+                // Actualizar el índice seleccionado según contexto
+                if (context === 'saved' || context === 'loved') {
+                    const articles = Array.from(container.parentElement.querySelectorAll('.article-line'));
+                    selectedIndex = articles.indexOf(element);
+                }
+            } else {
+                // Cerrar artículo
+                content.style.display = 'none';
+                element.classList.remove('article-selected');
+                
+                // Si estamos en saved o loved y presionamos J, marcar como leído
+                if (context === 'saved' || context === 'loved') {
+                    const link = element.querySelector('.article-title').textContent;
+                    // Aquí podríamos implementar lógica de marcado como leído
+                    console.log('Article read in', context, ':', link);
+                }
+            }
         }
-        
-        function removeSaved(articleLink) {
-            // Encontrar y quitar de guardados
-            articles.forEach(article => {
-                if (article.link === articleLink) {
-                    article.isSaved = false;
-                    // Actualizar botón si existe
-                    const button = document.getElementById('saved-btn-' + articles.indexOf(article));
                     if (button) {
                         button.textContent = '[GUARDAR]';
                         button.style.color = '#00ff00';
@@ -1810,8 +2125,11 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             }
         }
         
+        console.log('=== toggleArticle definida correctamente ===');
+        
         function showPage(pageName, event) {
             console.log('showPage llamada con:', pageName, event);
+            console.log('Event target:', event ? event.target : 'No event');
             if (event) {
                 event.preventDefault();
             }
@@ -1878,6 +2196,8 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 selectedIndex = -1; // Para otras páginas sin artículos
             }
         }
+        
+        console.log('=== showPage definida correctamente ===');
         
         function closeAllModals() {
             // Esta función ya no es necesaria para páginas, pero la mantenemos por compatibilidad
@@ -2160,81 +2480,111 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             }
         }
         
-        document.addEventListener('DOMContentLoaded', function() {
-            // Función para actualizar fecha y hora
-            function updateDateTime() {
-                const now = new Date();
-                const dateOptions = { 
-                    weekday: 'short', 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                };
-                const timeOptions = { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit',
-                    hour12: false
-                };
-                
-                const dateElement = document.getElementById('current-date');
-                const timeElement = document.getElementById('current-time');
-                
-                if (dateElement && timeElement) {
-                    dateElement.textContent = now.toLocaleDateString('es-ES', dateOptions);
-                    timeElement.textContent = now.toLocaleTimeString('es-ES', timeOptions);
-                }
-            }
-            
-            // Actualizar inmediatamente
-            updateDateTime();
-            
-            // Actualizar cada segundo
-            setInterval(updateDateTime, 1000);
-            
-            // Recopilar información de artículos
-            document.querySelectorAll('.article-container').forEach((container, index) => {
-                const span = container.querySelector('.full-line-link');
-                const meta = container.querySelector('.meta').textContent;
-                const title = container.querySelector('.title').textContent;
-                
-                const parts = meta.split(' | ');
-                articles.push({
-                    title: title,
-                    date: parts[0] || '',
-                    source: parts[1] || '',
-                    link: span.getAttribute('data-link'),
-                    description: span.getAttribute('data-description') || '',
-                    isRead: false,
-                    isSaved: false,
-                    isLoved: false
+        function setupImportHandlers() {
+            // Handler para mostrar nombre del archivo seleccionado
+            const fileInput = document.getElementById('opml-file');
+            if (fileInput) {
+                fileInput.addEventListener('change', function() {
+                    const fileName = this.files[0] ? this.files[0].name : '';
+                    const fileNameSpan = document.getElementById('file-name');
+                    if (fileNameSpan) {
+                        fileNameSpan.textContent = fileName;
+                    }
                 });
-            });
-            
-            // Actualizar contador de feeds
-            const feedsCount = document.getElementById('feeds-count');
-            if (feedsCount) {
-                feedsCount.textContent = articles.length > 0 ? '(' + articles.length + ')' : '';
             }
             
-            // Inicializar selección en el primer artículo
-            if (articles.length > 0) {
-                selectedIndex = 0;
-                highlightSelected();
+            // Handler para formulario OPML
+            const opmlForm = document.getElementById('opml-upload-form');
+            if (opmlForm) {
+                opmlForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    if (!fileInput.files[0]) {
+                        alert('Please select an OPML file');
+                        return;
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('opml', fileInput.files[0]);
+                    
+                    try {
+                        const response = await fetch('/upload-opml', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.text();
+                            alert('✅ ' + result);
+                            fileInput.value = '';
+                            document.getElementById('file-name').textContent = '';
+                            switchTab('feeds');
+                            setTimeout(() => window.location.reload(), 1000);
+                        } else {
+                            const text = await response.text();
+                            alert('Error: ' + text);
+                        }
+                    } catch (error) {
+                        alert('Error importing feeds');
+                    }
+                });
             }
             
-            // Cargar configuración de posición de botones
-            const savedPosition = localStorage.getItem('buttonsPosition') || 'right';
-            const buttonsSelect = document.getElementById('buttonsConfig');
-            const buttonsModalSelect = document.getElementById('buttonsConfigModal');
-            if (buttonsSelect) {
-                buttonsSelect.value = savedPosition;
+            // Handler para formulario manual de feeds
+            const manualForm = document.getElementById('manual-feed-form');
+            if (manualForm) {
+                manualForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const feedUrl = document.getElementById('feed-url').value;
+                    const formData = new FormData();
+                    formData.append('url', feedUrl);
+                    
+                    try {
+                        const response = await fetch('/add', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (response.ok) {
+                            alert('✅ Feed added successfully!');
+                            document.getElementById('feed-url').value = '';
+                            switchTab('feeds');
+                            setTimeout(() => window.location.reload(), 1000);
+                        } else {
+                            const text = await response.text();
+                            alert('Error: ' + text);
+                        }
+                    } catch (error) {
+                        alert('Error adding feed');
+                    }
+                });
             }
-            if (buttonsModalSelect) {
-                buttonsModalSelect.value = savedPosition;
-            }
-        });
+        }
+        
+        function exportFeeds() {
+            window.open('/export-opml', '_blank');
+        }
+        
+        function clearCache() {
+            fetch('/clear-cache', { method: 'POST' })
+                .then(response => response.text())
+                .then(data => {
+                    alert('✅ Cache cleared successfully');
+                })
+                .catch(error => {
+                    alert('Error clearing cache');
+                });
+        }
+        
+        // Verificar que las funciones importantes estén disponibles al final
+        console.log('=== Verificando funciones globales ===');
+        console.log('toggleArticle defined:', typeof toggleArticle);
+        console.log('showPage defined:', typeof showPage);
+        console.log('toggleArticleContent defined:', typeof toggleArticleContent);
+        */
     </script>
+    <!-- FIN DEL JAVASCRIPT PROBLEMÁTICO COMENTADO -->
 </head>
 <body>
     <div class="container">
@@ -2249,7 +2599,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             </div>
             <div class="subtitle">» A LIBERTARIAN RSS READER «</div>
             <div style="position: absolute; top: 8px; right: 10px;">
-                <a href="/logout" style="color: #888; text-decoration: none; font-size: 10px;">[LOGOUT]</a>
+                <a href="/logout" style="color: #ffff00; text-decoration: none; font-size: 10px;">[LOGOUT]</a>
             </div>
         </div>
         <div class="tabs">
@@ -2318,18 +2668,18 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         <!-- Saved Articles Page -->
         <div id="saved-content" class="page-content" style="display: none;">
             <div class="page-header">SAVED ARTICLES (F2)</div>
-            <p>List of articles marked as saved.</p>
+            <div style="height: 1px; background: #000; margin-bottom: 0px;"></div>
             <div id="saved-articles-list">
-                <p style="color: #888;">No saved articles yet.</p>
+                <p style="color: #888; text-align: center; padding: 40px;">Loading saved articles...</p>
             </div>
         </div>
         
         <!-- Loved Page -->
         <div id="loved-content" class="page-content" style="display: none;">
             <div class="page-header">LOVED ARTICLES (F3)</div>
-            <p>List of articles marked as loved.</p>
+            <div style="height: 1px; background: #000; margin-bottom: 0px;"></div>
             <div id="loved-articles-list">
-                <p style="color: #888;">No favorite articles yet.</p>
+                <p style="color: #888; text-align: center; padding: 40px;">Loading loved articles...</p>
             </div>
         </div>
         
@@ -2337,6 +2687,44 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         <div id="config-content" class="page-content" style="display: none;">
             <div class="page-header">CONFIGURATION (F4)</div>
             
+            <div class="config-section">
+                <h3>📥 IMPORT FEEDS</h3>
+                <div class="import-section">
+                    <form id="opml-upload-form" enctype="multipart/form-data">
+                        <div class="upload-area">
+                            <input type="file" id="opml-file" name="opml" accept=".opml,.xml" style="display: none;">
+                            <button type="button" onclick="document.getElementById('opml-file').click()" class="upload-button">
+                                📁 SELECT OPML FILE
+                            </button>
+                            <span id="file-name" class="file-name"></span>
+                        </div>
+                        <button type="submit" class="import-button">📥 IMPORT FEEDS</button>
+                    </form>
+                    
+                    <div class="manual-add">
+                        <h4>➕ ADD INDIVIDUAL FEED</h4>
+                        <form id="manual-feed-form">
+                            <input type="url" id="feed-url" placeholder="https://example.com/rss.xml" required>
+                            <button type="submit">ADD FEED</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="config-section">
+                <h3>📋 FEED MANAGEMENT</h3>
+                <div class="feeds-management">
+                    <div class="feeds-stats">
+                        <span id="total-feeds">Total: --</span>
+                        <span id="active-feeds">Active: --</span>
+                    </div>
+                    <div class="management-actions">
+                        <button onclick="exportFeeds()" class="export-button">📤 EXPORT OPML</button>
+                        <button onclick="clearCache()" class="clear-cache-button">🗑️ CLEAR CACHE</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="config-section">
                 <h3>RSS FEEDS MANAGEMENT</h3>
                 <p style="color: #888; margin-bottom: 20px;">Navigate with J/K, delete with D</p>
@@ -2365,6 +2753,305 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             </div>
         </div>
     </div>
+    
+    <script>
+        // DEFINICIONES GLOBALES - FUNCIONES DE NAVEGACIÓN
+        
+        // Variables globales necesarias
+        let selectedIndex = 0;
+        let currentPage = 'feeds';
+        const articles = [];
+        
+        // Función principal de navegación entre pestañas
+        window.showPage = function(pageName, event) {
+            if (event) {
+                event.preventDefault();
+            }
+            
+            // Actualizar la página actual
+            currentPage = pageName;
+            
+            // Ocultar todos los contenidos
+            const contentIds = ['feeds-content', 'saved-content', 'loved-content', 'config-content'];
+            contentIds.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.style.display = 'none';
+            });
+            
+            // Quitar clase activa de todas las pestañas
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('tab-active');
+            });
+            
+            // Mostrar el contenido solicitado
+            const targetContent = document.getElementById(pageName + '-content');
+            if (targetContent) {
+                targetContent.style.display = 'block';
+            }
+            
+            // Activar la pestaña correspondiente
+            if (event && event.target) {
+                event.target.classList.add('tab-active');
+            } else {
+                // Si no hay event.target, buscar la pestaña por el nombre
+                const tabs = document.querySelectorAll('.tab');
+                tabs.forEach(tab => {
+                    if (tab.textContent.toLowerCase().includes(pageName)) {
+                        tab.classList.add('tab-active');
+                    }
+                });
+            }
+            
+            selectedIndex = 0;
+        };
+        
+        // Función para toggle de artículos en feeds principales
+        window.toggleArticle = function(index, event) {
+            console.log('🎯 DEBUG toggleArticle - Index:', index);
+            
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            // MÉTODO 1: Buscar por ID directo (content-X)
+            const contentById = document.getElementById('content-' + index);
+            console.log('🔍 Buscando content-' + index + ':', !!contentById);
+            
+            if (contentById) {
+                const isCurrentlyExpanded = contentById.classList.contains('expanded');
+                console.log('📄 Contenido expandido actualmente:', isCurrentlyExpanded);
+                
+                // Cerrar todos los artículos
+                document.querySelectorAll('.article-content').forEach(el => {
+                    el.classList.remove('expanded');
+                });
+                
+                if (!isCurrentlyExpanded) {
+                    // Abrir el artículo
+                    contentById.classList.add('expanded');
+                    selectedIndex = index;
+                    console.log('✅ Artículo expandido - clases:', contentById.className);
+                    console.log('📝 Contenido HTML:', contentById.innerHTML.substring(0, 200) + '...');
+                    
+                    // Scroll más suave y posicionado al contenido expandido
+                    setTimeout(() => {
+                        contentById.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                } else {
+                    console.log('📄 Artículo cerrado');
+                }
+                return;
+            }
+            
+            // MÉTODO 2: Buscar usando la estructura de containers
+            const containers = document.querySelectorAll('#feeds-content .article-container');
+            console.log('📦 Total containers encontrados:', containers.length);
+            if (containers[index]) {
+                console.log('📦 Container [' + index + '] encontrado');
+                const content = containers[index].querySelector('.article-content');
+                console.log('📄 Content encontrado en container:', !!content);
+                
+                if (content) {
+                    const isCurrentlyExpanded = content.classList.contains('expanded');
+                    console.log('📄 Expandido (método 2):', isCurrentlyExpanded);
+                    
+                    // Cerrar todos los artículos
+                    document.querySelectorAll('.article-content').forEach(el => {
+                        el.classList.remove('expanded');
+                    });
+                    
+                    if (!isCurrentlyExpanded) {
+                        // Abrir el artículo
+                        content.classList.add('expanded');
+                        console.log('✅ Expandido (método 2) - HTML:', content.innerHTML.substring(0, 200) + '...');
+                        
+                        // Scroll más suave
+                        setTimeout(() => {
+                            content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }, 100);
+                    }
+                    return;
+                }
+            } else {
+                console.log('❌ No se encontró container para index:', index);
+            }
+            
+            // MÉTODO 3: Simular click en el artículo seleccionado
+            const selectedArticleLine = document.querySelector('.article-line.article-selected');
+            console.log('🖱️ ArticleLine seleccionado encontrado:', !!selectedArticleLine);
+            if (selectedArticleLine) {
+                const fullLineLink = selectedArticleLine.querySelector('.full-line-link');
+                console.log('🔗 FullLineLink encontrado:', !!fullLineLink);
+                if (fullLineLink) {
+                    console.log('🖱️ Haciendo click en full-line-link');
+                    fullLineLink.click();
+                    return;
+                }
+                
+                console.log('🖱️ Haciendo click directo en article-line');
+                selectedArticleLine.click();
+                return;
+            }
+            
+            console.log('❌ NO SE PUDO EXPANDIR EL ARTÍCULO CON NINGÚN MÉTODO');
+        };
+        
+        // Función para toggle de artículos en saved/loved
+        window.toggleArticleContent = function(element, url, context) {
+            
+            const container = element.closest('.article-container');
+            if (!container) return;
+            
+            const content = container.querySelector('.article-content');
+            if (!content) return;
+            
+            const isCurrentlyExpanded = content.classList.contains('expanded');
+            
+            // Cerrar todos los artículos
+            document.querySelectorAll('.article-content').forEach(el => {
+                el.classList.remove('expanded');
+                el.parentElement.querySelector('.article-line')?.classList.remove('article-selected');
+            });
+            
+            if (!isCurrentlyExpanded) {
+                // Abrir el artículo
+                content.classList.add('expanded');
+                element.classList.add('article-selected');
+                
+                // Scroll al artículo
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+        
+        // Navegación por teclado - VERSIÓN FINAL LIMPIA
+        document.addEventListener('keydown', function(event) {
+            // Evitar atajos si hay un input activo
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            // Navegación con J/K
+            if (event.key === 'j' || event.key === 'J' || event.code === 'KeyJ') {
+                event.preventDefault();
+                const totalArticles = document.querySelectorAll('#feeds-content .article-container').length;
+                if (selectedIndex < totalArticles - 1) {
+                    selectedIndex++;
+                    highlightSelected();
+                }
+                return;
+            }
+            
+            if (event.key === 'k' || event.key === 'K' || event.code === 'KeyK') {
+                event.preventDefault();
+                if (selectedIndex > 0) {
+                    selectedIndex--;
+                    highlightSelected();
+                }
+                return;
+            }
+            
+            // Resto de teclas
+            const key = event.key.toLowerCase();
+            
+            switch(key) {
+                case 'f1':
+                    event.preventDefault();
+                    showPage('feeds');
+                    break;
+                    
+                case 'f2':
+                    event.preventDefault();
+                    showPage('saved');
+                    break;
+                    
+                case 'f3':
+                    event.preventDefault();
+                    showPage('loved');
+                    break;
+                    
+                case 'f4':
+                    event.preventDefault();
+                    showPage('config');
+                    break;
+                    
+                case ' ':
+                    event.preventDefault();
+                    if (currentPage === 'feeds' && selectedIndex >= 0) {
+                        toggleArticle(selectedIndex);
+                    }
+                    break;
+                    
+                case 'enter':
+                    event.preventDefault();
+                    if (currentPage === 'feeds' && selectedIndex >= 0) {
+                        toggleArticle(selectedIndex);
+                    }
+                    break;
+                    
+                case 'arrowdown':
+                    event.preventDefault();
+                    const totalDown = document.querySelectorAll('#feeds-content .article-container').length;
+                    if (selectedIndex < totalDown - 1) {
+                        selectedIndex++;
+                        highlightSelected();
+                    }
+                    break;
+                    
+                case 'arrowup':
+                    event.preventDefault();
+                    if (selectedIndex > 0) {
+                        selectedIndex--;
+                        highlightSelected();
+                    }
+                    break;
+            }
+        });
+        
+        // Función para destacar el artículo seleccionado
+        function highlightSelected() {
+            // Quitar highlight previo
+            document.querySelectorAll('.article-line').forEach(el => {
+                el.classList.remove('article-selected');
+                el.style.backgroundColor = ''; // Limpiar estilos inline
+                el.style.color = '';
+                el.style.border = '';
+            });
+            
+            // Agregar highlight al actual
+            if (currentPage === 'feeds') {
+                const containers = document.querySelectorAll('#feeds-content .article-container');
+                
+                if (containers[selectedIndex]) {
+                    const articleLine = containers[selectedIndex].querySelector('.article-line');
+                    
+                    if (articleLine) {
+                        articleLine.classList.add('article-selected');
+                        
+                        // Añadir highlighting visual más visible
+                        articleLine.style.backgroundColor = 'rgba(0, 255, 0, 0.2)'; // Verde translúcido
+                        articleLine.style.border = '2px solid #00ff00'; // Borde verde
+                        articleLine.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)'; // Sombra verde
+                        
+                        articleLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            }
+        }
+        
+        // Inicializar cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Asegurar que la página tenga el foco para recibir eventos de teclado
+            window.focus();
+            document.body.focus();
+            
+            // Destacar el primer artículo
+            selectedIndex = 0;
+            setTimeout(function() {
+                highlightSelected();
+            }, 500);
+        });
+    </script>
 </body>
 </html>`
 
@@ -2374,7 +3061,8 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
-	feeds := loadFeeds()
+	username := getUserFromRequest(r)
+	feeds := loadFeedsForUser(username)
 	var allArticles []Article
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -2523,42 +3211,53 @@ func fetchFeedArticles(feedURL string) []Article {
 
 		// Mejorar el nombre de la fuente
 		sourceName := feed.Title
-		if sourceName == "" || sourceName == "YouTube" {
-			// Para YouTube, intentar extraer el nombre del canal
+		if sourceName == "" || sourceName == "YouTube" || strings.Contains(sourceName, "uploads by") {
+			// Para YouTube, usar el título del feed si está disponible
 			if strings.Contains(feedURL, "youtube.com") || strings.Contains(feedURL, "youtu.be") {
-				if strings.Contains(feedURL, "/channel/") {
-					channelMatch := regexp.MustCompile(`/channel/([^/\?]+)`).FindStringSubmatch(feedURL)
-					if len(channelMatch) > 1 {
-						channelID := channelMatch[1]
-						if len(channelID) > 8 {
-							channelID = channelID[:8]
-						}
-						sourceName = fmt.Sprintf("YouTube Channel %s...", channelID)
-					} else {
-						sourceName = "YouTube Channel"
-					}
-				} else if strings.Contains(feedURL, "channel_id=") {
-					channelMatch := regexp.MustCompile(`channel_id=([^&]+)`).FindStringSubmatch(feedURL)
-					if len(channelMatch) > 1 {
-						channelID := channelMatch[1]
-						if len(channelID) > 8 {
-							channelID = channelID[:8]
-						}
-						sourceName = fmt.Sprintf("YouTube Channel %s...", channelID)
-					} else {
-						sourceName = "YouTube Channel"
-					}
-				} else if strings.Contains(feedURL, "user=") {
-					userMatch := regexp.MustCompile(`user=([^&]+)`).FindStringSubmatch(feedURL)
-					if len(userMatch) > 1 {
-						sourceName = fmt.Sprintf("YouTube @%s", userMatch[1])
-					} else {
-						sourceName = "YouTube Channel"
-					}
+				if feed.Title != "" && !strings.Contains(feed.Title, "uploads by") {
+					// Usar el título del feed directamente si es bueno
+					sourceName = feed.Title
 				} else {
-					sourceName = "YouTube Channel"
+					// Extraer información de la URL como fallback
+					if strings.Contains(feedURL, "/channel/") {
+						channelMatch := regexp.MustCompile(`/channel/([^/\?]+)`).FindStringSubmatch(feedURL)
+						if len(channelMatch) > 1 {
+							channelID := channelMatch[1]
+							if len(channelID) > 12 {
+								channelID = channelID[:12]
+							}
+							sourceName = fmt.Sprintf("YT %s", channelID)
+						} else {
+							sourceName = "YouTube Channel"
+						}
+					} else if strings.Contains(feedURL, "channel_id=") {
+						channelMatch := regexp.MustCompile(`channel_id=([^&]+)`).FindStringSubmatch(feedURL)
+						if len(channelMatch) > 1 {
+							channelID := channelMatch[1]
+							if len(channelID) > 12 {
+								channelID = channelID[:12]
+							}
+							sourceName = fmt.Sprintf("YT %s", channelID)
+						} else {
+							sourceName = "YouTube Channel"
+						}
+					} else if strings.Contains(feedURL, "user=") {
+						userMatch := regexp.MustCompile(`user=([^&]+)`).FindStringSubmatch(feedURL)
+						if len(userMatch) > 1 {
+							sourceName = fmt.Sprintf("YouTube @%s", userMatch[1])
+						} else {
+							sourceName = "YouTube Channel"
+						}
+					} else {
+						sourceName = "YouTube Channel"
+					}
 				}
 			}
+		}
+
+		// Limpiar y acortar nombres muy largos
+		if len(sourceName) > 30 {
+			sourceName = sourceName[:27] + "..."
 		}
 
 		article := Article{
@@ -2587,14 +3286,15 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username := getUserFromRequest(r)
 	feed := Feed{URL: feedURL, Active: true}
-	if err := saveFeed(feed); err != nil {
+	if err := saveFeedForUser(feed, username); err != nil {
 		log.Printf("❌ Error saving feed: %v", err)
 		http.Error(w, "Error saving feed", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("✅ Feed added: %s", feedURL)
+	log.Printf("✅ Feed added for user %s: %s", username, feedURL)
 	w.Write([]byte("Feed added successfully"))
 }
 
@@ -3042,7 +3742,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
         
         .login-subtitle {
             font-size: 14px;
-            color: #00aa00;
+            color: #ffff00;
             margin-top: 5px;
             margin-bottom: 35px;
             letter-spacing: 2px;
@@ -3402,7 +4102,8 @@ func feedsAPIHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	feeds := loadFeeds()
+	username := getUserFromRequest(r)
+	feeds := loadFeedsForUser(username)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(feeds)
@@ -3441,6 +4142,167 @@ func checkFeedHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// Handler para importar feeds desde OPML
+func uploadOPMLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	username := getUserFromRequest(r)
+	log.Printf("🔄 OPML import started for user: %s", username)
+
+	if username == "" {
+		log.Printf("❌ No authenticated user found")
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	file, header, err := r.FormFile("opml")
+	if err != nil {
+		log.Printf("❌ Error getting OPML file: %v", err)
+		http.Error(w, "Error getting file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	log.Printf("📁 Processing OPML file: %s", header.Filename)
+
+	// Leer el contenido del archivo
+	data, err := io.ReadAll(file)
+	if err != nil {
+		log.Printf("❌ Error reading OPML file: %v", err)
+		http.Error(w, "Error reading file", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("📄 OPML file size: %d bytes", len(data))
+
+	// Parsear el OPML
+	var opml OPML
+	if err := xml.Unmarshal(data, &opml); err != nil {
+		log.Printf("❌ Error parsing OPML: %v", err)
+		preview := string(data)
+		if len(data) > 200 {
+			preview = string(data[:200]) + "..."
+		}
+		log.Printf("📄 OPML content preview: %s", preview)
+		http.Error(w, "Invalid OPML file", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("✅ OPML parsed successfully, found %d top-level outlines", len(opml.Body.Outlines))
+
+	// Cargar feeds existentes del usuario
+	feeds := loadFeedsForUser(username)
+	existingUrls := make(map[string]bool)
+	for _, feed := range feeds {
+		existingUrls[feed.URL] = true
+	}
+
+	log.Printf("📋 User %s has %d existing feeds", username, len(feeds))
+
+	// Recopilar todos los feeds de forma recursiva
+	var allFeeds []string
+	for _, outline := range opml.Body.Outlines {
+		collectFeedsRecursive(outline, &allFeeds)
+	}
+
+	log.Printf("🔍 Found %d total feeds in OPML (including nested)", len(allFeeds))
+
+	// Importar feeds
+	imported := 0
+	skipped := 0
+	errors := 0
+
+	for _, feedURL := range allFeeds {
+		if !existingUrls[feedURL] {
+			feed := Feed{
+				URL:    feedURL,
+				Active: true,
+			}
+			if err := saveFeedForUser(feed, username); err != nil {
+				log.Printf("❌ Error saving imported feed %s: %v", feedURL, err)
+				errors++
+			} else {
+				log.Printf("✅ Imported feed: %s", feedURL)
+				imported++
+				existingUrls[feedURL] = true
+			}
+		} else {
+			log.Printf("⏭️  Skipped existing feed: %s", feedURL)
+			skipped++
+		}
+	}
+
+	log.Printf("🎯 OPML import completed for user %s: %d imported, %d skipped, %d errors", username, imported, skipped, errors)
+
+	result := fmt.Sprintf("Successfully imported %d feeds (%d skipped, %d errors)", imported, skipped, errors)
+	w.Write([]byte(result))
+}
+
+// Función recursiva para recopilar todos los feeds del OPML
+func collectFeedsRecursive(outline Outline, feeds *[]string) {
+	// Si este outline tiene un xmlUrl, es un feed
+	if outline.XMLURL != "" {
+		*feeds = append(*feeds, outline.XMLURL)
+		log.Printf("🔗 Found feed: %s (%s)", outline.Title, outline.XMLURL)
+	}
+
+	// Procesar sub-outlines recursivamente
+	for _, subOutline := range outline.Outlines {
+		collectFeedsRecursive(subOutline, feeds)
+	}
+} // Handler para exportar feeds a OPML
+func exportOPMLHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	username := getUserFromRequest(r)
+	feeds := loadFeedsForUser(username)
+
+	// Crear estructura OPML
+	opml := OPML{
+		Version: "2.0",
+		Head: Head{
+			Title: "RSS Feeds Export",
+		},
+		Body: Body{},
+	}
+
+	// Agregar feeds al OPML
+	for _, feed := range feeds {
+		if feed.Active {
+			outline := Outline{
+				Type:   "rss",
+				XMLURL: feed.URL,
+				Title:  feed.URL, // Podríamos mejorar esto obteniendo el título real
+			}
+			opml.Body.Outlines = append(opml.Body.Outlines, outline)
+		}
+	}
+
+	// Convertir a XML
+	xmlData, err := xml.MarshalIndent(opml, "", "  ")
+	if err != nil {
+		log.Printf("❌ Error creating OPML: %v", err)
+		http.Error(w, "Error creating OPML", http.StatusInternalServerError)
+		return
+	}
+
+	// Configurar headers para descarga
+	w.Header().Set("Content-Type", "application/xml")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"feeds_%s.opml\"", username))
+
+	// Escribir XML con declaración
+	w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>` + "\n"))
+	w.Write(xmlData)
+
+	log.Printf("✅ OPML export completed for user %s: %d feeds exported", username, len(opml.Body.Outlines))
+}
+
 // Handler para eliminar un feed
 func deleteFeedHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -3457,8 +4319,9 @@ func deleteFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cargar feeds actuales
-	feeds := loadFeeds()
+	username := getUserFromRequest(r)
+	// Cargar feeds actuales del usuario
+	feeds := loadFeedsForUser(username)
 
 	// Filtrar el feed a eliminar
 	var updatedFeeds []Feed
@@ -3484,8 +4347,8 @@ func deleteFeedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Guardar feeds actualizados
-	if err := saveFeeds(updatedFeeds); err != nil {
+	// Guardar feeds actualizados para el usuario
+	if err := saveFeedsForUser(updatedFeeds, username); err != nil {
 		response := struct {
 			Success bool   `json:"success"`
 			Error   string `json:"error"`
@@ -3507,7 +4370,7 @@ func deleteFeedHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("🗑️  Feed deleted: %s", request.URL)
+	log.Printf("🗑️  Feed deleted for user %s: %s", username, request.URL)
 }
 
 func main() {
@@ -3537,14 +4400,16 @@ func main() {
 	mux.Handle("/api/feeds", authMiddleware(http.HandlerFunc(feedsAPIHandler)))
 	mux.Handle("/api/check-feed", authMiddleware(http.HandlerFunc(checkFeedHandler)))
 	mux.Handle("/api/delete-feed", authMiddleware(http.HandlerFunc(deleteFeedHandler)))
+	mux.Handle("/upload-opml", authMiddleware(http.HandlerFunc(uploadOPMLHandler)))
+	mux.Handle("/export-opml", authMiddleware(http.HandlerFunc(exportOPMLHandler)))
 	mux.Handle("/clear-cache", authMiddleware(http.HandlerFunc(clearCacheHandler)))
 	mux.Handle("/logout", authMiddleware(http.HandlerFunc(logoutHandler)))
 
 	log.Println("🚀 Starting ANCAP WEB Server with Authentication...")
-	log.Println("🌐 Server running at http://localhost:8083")
+	log.Println("🌐 Server running at http://localhost:8080")
 	log.Println("🔐 Default users: admin/admin123, ancap/libertad")
 
-	if err := http.ListenAndServe(":8083", gzipMiddleware(mux)); err != nil {
+	if err := http.ListenAndServe(":8080", gzipMiddleware(mux)); err != nil {
 		log.Fatalf("❌ Server failed to start: %v", err)
 	}
 }

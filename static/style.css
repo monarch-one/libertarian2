@@ -44,6 +44,15 @@ body {
   overflow-x: hidden;
 }
 
+/* Garantizar fuente monoespaciada en todos los elementos */
+body, input, button, select, textarea, 
+.article-source, .article-title, .article-date,
+.config-section, .tab-header, .feeds-management,
+.manual-add, .upload-area, .file-name,
+.feeds-stats, .management-actions {
+  font-family: var(--font-family-mono) !important;
+}
+
 .main-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -155,6 +164,19 @@ body {
   color: var(--highlight-color);
 }
 
+/* Estado del artículo seleccionado/abierto - mantener en verde */
+.article-line.article-selected,
+.article-line.selected {
+  background-color: #1a4d1a;
+  color: var(--highlight-color);
+}
+
+.article-line.article-selected:hover,
+.article-line.selected:hover {
+  background-color: #1a4d1a;
+  color: var(--highlight-color);
+}
+
 .article-date {
   width: 120px;
   flex-shrink: 0;
@@ -228,6 +250,24 @@ body {
 
 .article-content p:last-child {
   margin-bottom: 0;
+}
+
+/* DEBUG: Agregar estilos para la clase expanded */
+.article-content.expanded {
+  display: block !important;
+  background: yellow !important;
+  color: black !important;
+  border: 5px solid lime !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 999 !important;
+}
+
+/* DEBUG: Hacer visible todos los article-content */
+.article-content {
+  border: 2px solid red !important;
+  min-height: 20px !important;
 }
 
 .expanded-content {
