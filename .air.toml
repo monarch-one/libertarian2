@@ -1,57 +1,54 @@
 # .air.toml
-# This file configures 'air' to ignore specific directories
-# and optimize its watching behavior.
+# Configuración optimizada para hot reloading
 
 [build]
-# Command to build your Go application.
-# Default: go build -o <tmpdir>/main .
-cmd = "go build -o ./tmp/main.exe ." # Using ./tmp for the build output with .exe extension for Windows
+# Comando para compilar tu aplicación Go
+cmd = "go build -o ./tmp/main.exe ."
 
-# Binary name.
-# bin = "tmp/main" # This assumes 'tmp' directory in your project root
+# Nombre del binario
 bin = "./tmp/main.exe"
 
-# Path to watch for file changes.
-# Default: . (current directory)
-include_dir = [
-    ".", # Watch the current directory
+# Directorios a incluir en el watching
+include_dir = ["."]
+
+# Extensiones de archivo a vigilar
+include_ext = ["go", "html", "css", "js", "json"]
+
+# Delay para detección de cambios (en milisegundos)
+delay = 500
+
+# Directorio temporal para builds
+tmp_dir = "tmp"
+
+# Directorios a excluir del watching
+exclude_dir = [
+    "tmp", 
+    "vendor", 
+    "node_modules", 
+    ".git", 
+    ".vscode", 
+    "WORKSPACE2"
 ]
 
-# Files to include even if their directory is ignored.
-include_ext = ["go"]
+# Archivos a excluir
+exclude_regex = ["_test\\.go"]
 
-# Exclude these types of files.
-# exclude_ext = ["go", "md"]
+# Log de errores de build
+log = "tmp/build-errors.log"
 
-# Delay for file change detection in milliseconds.
-delay = 1000
-
-# Run 'air' in verbose mode.
-# Default: false
-verbose = true
+# Limpiar pantalla en cada rebuild
+[screen]
+clear_on_rebuild = true
 
 [log]
-# Log level for air.
-# Options: trace, debug, info, warn, error, fatal
-level = "info"
+# Mostrar solo logs principales
+main_only = false
+time = true
 
-[server]
-# Command to run after build.
-# Default: <bin>
-cmd = "./tmp/main.exe"
-
-# Port for the server.
-port = 8083
-
-# Paths to ignore for file changes.
-ignore_dir = [
-    "tmp", # Ignore the temporary build directory
-    "vendor", # If you use Go modules vendor directory
-    "node_modules", # If you have any frontend setup
-    ".git", # Ignore git directory
-    ".vscode", # Ignore VS Code settings
-    "WORKSPACE2", # Ignore other workspace
-]
-
-# Directories to exclude from watching.
-exclude_dir = ["static", "templates", "tmp", ".git", ".vscode", "WORKSPACE2"]
+[color]
+# Colores para la salida
+app = "blue"
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"

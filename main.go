@@ -1,3 +1,24 @@
+// ANCAP WEB - A Libertarian RSS Reader
+// =================================
+//
+// DESARROLLO CON AIR HOT RELOADING:
+// - Para desarrollo usar: air (hot reloading automático)
+// - Para producción usar: go run main.go
+// - Configuración en: .air.toml
+// - Script rápido: dev-hot.bat
+//
+// CARACTERÍSTICAS:
+// - Sistema de autenticación con sesiones
+// - Lector RSS con cache y paralelización
+// - Interfaz terminal/retro con JetBrains Mono
+// - Navegación por teclado (F1-F4, flechas, Space, etc.)
+// - Funciones: guardar, favoritos, compartir
+// - Scraping de contenido completo de artículos
+//
+// CREDENCIALES POR DEFECTO:
+// - admin / admin123
+// - ancap / libertad
+
 package main
 
 import (
@@ -41,6 +62,16 @@ type FavoriteArticle struct {
 	Source string `json:"source"`
 }
 
+type User struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type Session struct {
+	Username string
+	Expires  time.Time
+}
+
 type TemplateData struct {
 	Articles      []Article
 	ImportMessage string
@@ -76,16 +107,137 @@ type CachedFeed struct {
 	URL       string
 }
 
+type CachedArticleContent struct {
+	Content   string
+	Timestamp time.Time
+	Success   bool
+}
+
 type FeedCache struct {
 	mutex sync.RWMutex
 	feeds map[string]CachedFeed
+}
+
+type ArticleContentCache struct {
+	mutex    sync.RWMutex
+	articles map[string]CachedArticleContent
 }
 
 var globalCache = &FeedCache{
 	feeds: make(map[string]CachedFeed),
 }
 
+var articleContentCache = &ArticleContentCache{
+	articles: make(map[string]CachedArticleContent),
+}
+
+var sessions = make(map[string]Session)
+var sessionMutex sync.RWMutex
+
 const CACHE_DURATION = 1 * time.Minute
+const SESSION_DURATION = 24 * time.Hour
+
+func loadUsers() []User {
+	file, err := os.Open("users.json")
+	if err != nil {
+		// Si no existe users.json, crear usuario por defecto
+		defaultUsers := []User{
+			{"admin", "admin123"},
+			{"ancap", "libertad"},
+		}
+		saveUsers(defaultUsers)
+		return defaultUsers
+	}
+	defer file.Close()
+
+	var users []User
+	json.NewDecoder(file).Decode(&users)
+	return users
+}
+
+func saveUsers(users []User) error {
+	file, err := os.Create("users.json")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return json.NewEncoder(file).Encode(users)
+}
+
+func validateLogin(username, password string) bool {
+	users := loadUsers()
+	for _, user := range users {
+		if user.Username == username && user.Password == password {
+			return true
+		}
+	}
+	return false
+}
+
+func generateSessionID() string {
+	return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+
+func createSession(username string) string {
+	sessionMutex.Lock()
+	defer sessionMutex.Unlock()
+
+	sessionID := generateSessionID()
+	sessions[sessionID] = Session{
+		Username: username,
+		Expires:  time.Now().Add(SESSION_DURATION),
+	}
+	return sessionID
+}
+
+func validateSession(sessionID string) (string, bool) {
+	sessionMutex.RLock()
+	defer sessionMutex.RUnlock()
+
+	session, exists := sessions[sessionID]
+	if !exists || time.Now().After(session.Expires) {
+		return "", false
+	}
+	return session.Username, true
+}
+
+func clearExpiredSessions() {
+	sessionMutex.Lock()
+	defer sessionMutex.Unlock()
+
+	for id, session := range sessions {
+		if time.Now().After(session.Expires) {
+			delete(sessions, id)
+		}
+	}
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Si es la página de login, permitir acceso
+		if r.URL.Path == "/login" || r.URL.Path == "/api/login" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Verificar sesión
+		cookie, err := r.Cookie("session_id")
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			return
+		}
+
+		username, valid := validateSession(cookie.Value)
+		if !valid {
+			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			return
+		}
+
+		// Agregar username al contexto si es necesario
+		r.Header.Set("X-Username", username)
+		next.ServeHTTP(w, r)
+	})
+}
 
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +374,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANCAP - ` + time.Now().Format("15:04:05") + ` [v2.1]</title>
+    <title>ANCAP - ` + time.Now().Format("15:04:05") + ` [v2.2]</title>
     <style>
         @font-face {
             font-family: 'JetBrains Mono';
@@ -252,88 +404,77 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             justify-content: center;
         }
         
-        /* Loading Screen */
-        .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-            color: #00ff00;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
-        }
-        
-        .loading-screen.hidden {
-            display: none;
-        }
-        
-        .loading-content {
-            text-align: center;
-            max-width: 90%;
-        }
-        
-        .loading-brand {
-            font-size: 10px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: #00ff00;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            white-space: pre;
-            line-height: 1.0;
-            text-shadow: 0 0 10px #00ff00;
-        }
-        
-        .loading-text {
-            font-size: 14px;
-            color: #00ff00;
-            margin-bottom: 20px;
-        }
-        
-        .loading-bar {
-            width: 300px;
-            height: 4px;
-            background: #333;
-            border: 1px solid #00ff00;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .loading-progress {
-            height: 100%;
-            background: #00ff00;
-            width: 0%;
-            transition: width 0.3s ease;
-            box-shadow: 0 0 10px #00ff00;
-        }
-        
-        .loading-dots::after {
-            content: '';
-            animation: dots 1.5s infinite;
-        }
-        
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
-        }
         .container { 
             max-width: 720px; 
             margin: 0; 
             text-align: left;
             width: 100%;
+            padding-top: 140px;
+            overflow: hidden;
+            position: relative;
+        }
+        .main-header {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 720px;
+            background: #000;
+            z-index: 1000;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            border-bottom: 1px solid #333;
+            box-sizing: border-box;
+        }
+        .datetime-display {
+            position: absolute;
+            top: 25px;
+            right: 10px;
+            font-size: 11px;
+            color: #00aa00;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 300;
+            text-align: right;
+            line-height: 1.2;
+        }
+        .ascii-logo {
+            font-size: 12px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            line-height: 1.0;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 10px;
+            color: #888;
+            text-align: center;
+            margin-top: 5px;
         }
         .tabs {
             display: flex;
             width: 100%;
+            max-width: 720px;
             margin-bottom: 20px;
-            border-bottom: 1px solid #00ff00;
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            z-index: 1100;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        .tabs::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: #000;
+            z-index: 1101;
         }
         .tab {
             flex: 1;
@@ -341,20 +482,38 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             padding: 10px;
             color: #00ff00;
             text-decoration: none;
-            border: 1px solid #333;
+            border: 1px dashed #00ff00;
+            border-radius: 8px 8px 0 0;
             background: #000;
             font-family: 'JetBrains Mono', 'Courier New', monospace;
             font-size: 12px;
             cursor: pointer;
+            margin: 2px 2px 0 2px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            position: relative;
         }
         .tab:hover {
-            background: #111;
+            background: #000;
+            transform: scale(1.02);
         }
         .tab.tab-active {
             background: #000;
             color: #00ff00;
             font-weight: bold;
+            border-color: #00ff00;
             border-bottom: 1px solid #000;
+            z-index: 1001;
+        }
+        .tab.tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #000;
+            z-index: 1002;
         }
         h1 { 
             color: #00ff00; 
@@ -438,14 +597,13 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         .article-content {
             display: none;
-            background: #111;
+            background: #000;
             color: #00ff00;
             padding: 15px;
             margin: 5px 0;
             font-family: 'JetBrains Mono', 'Courier New', monospace;
             font-size: 14px;
             line-height: 1.4;
-            border-left: 3px solid #00ff00;
             white-space: normal;
             word-wrap: break-word;
             max-height: 500px;
@@ -464,7 +622,18 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         .article-line.selected {
             background: #222;
-            border-left: 3px solid #00ff00;
+        }
+        .article-line.read {
+            color: #666 !important;
+        }
+        .article-line.read .meta {
+            color: #666 !important;
+        }
+        .article-line.read .title {
+            color: #666 !important;
+        }
+        .article-line.read .meta span {
+            color: #666 !important;
         }
         
         /* Modal/Window styles */
@@ -562,68 +731,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
     <script>
         let selectedIndex = -1;
         const articles = [];
-        
-        // Mostrar loading screen
-        function showLoadingScreen() {
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen) {
-                loadingScreen.classList.remove('hidden');
-                simulateLoading();
-            }
-        }
-        
-        // Simular carga progresiva
-        function simulateLoading() {
-            const progressBar = document.querySelector('.loading-progress');
-            const loadingText = document.querySelector('.loading-text');
-            
-            const steps = [
-                { progress: 20, text: 'INICIANDO ANCAP' },
-                { progress: 40, text: 'CARGANDO FEEDS RSS' },
-                { progress: 60, text: 'PROCESANDO ARTÍCULOS' },
-                { progress: 80, text: 'PREPARANDO INTERFAZ' },
-                { progress: 100, text: 'LISTO' }
-            ];
-            
-            let currentStep = 0;
-            
-            function updateProgress() {
-                if (currentStep < steps.length) {
-                    const step = steps[currentStep];
-                    progressBar.style.width = step.progress + '%';
-                    loadingText.innerHTML = step.text + '<span class="loading-dots"></span>';
-                    
-                    currentStep++;
-                    setTimeout(updateProgress, 300);
-                } else {
-                    setTimeout(hideLoadingScreen, 500);
-                }
-            }
-            
-            updateProgress();
-        }
-        
-        // Ocultar loading screen
-        function hideLoadingScreen() {
-            console.log('hideLoadingScreen iniciada');
-            const loadingScreen = document.getElementById('loading-screen');
-            
-            if (loadingScreen) {
-                console.log('Ocultando loading screen...');
-                loadingScreen.style.display = 'none';
-                
-                // Mostrar container principal inmediatamente
-                const container = document.querySelector('.container');
-                if (container) {
-                    container.style.display = 'flex';
-                    console.log('Container mostrado');
-                }
-                
-                console.log('Loading screen ocultada exitosamente');
-            } else {
-                console.error('Loading screen no encontrada');
-            }
-        }
+        let currentPage = 'feeds'; // Variable para rastrear la página activa
         
         function toggleArticle(index, event) {
             if (event) {
@@ -649,11 +757,77 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 content.classList.add('expanded');
                 selectedIndex = index;
                 
-                // Cargar contenido si no está cargado
-                if (!content.innerHTML.trim() || content.innerHTML === 'Cargando contenido...') {
-                    loadArticleContent(index);
+                // Marcar artículo como leído
+                const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
+                if (articleLine) {
+                    articleLine.classList.add('read');
+                    articles[index].isRead = true;
                 }
+                
+                // Mover el artículo expandido al primer lugar
+                moveArticleToTop(index);
+                
+                // Scroll al principio de la página
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+                
+                // Cargar contenido completo sin límites
+                loadArticleContent(index);
             }
+        }
+        
+        function moveArticleToTop(expandedIndex) {
+            const feedsContent = document.getElementById('feeds-content');
+            const articleLines = feedsContent.querySelectorAll('.article-line');
+            
+            if (expandedIndex >= 0 && expandedIndex < articleLines.length) {
+                const expandedArticle = articleLines[expandedIndex];
+                const parentDiv = expandedArticle.parentNode;
+                
+                // Mover el artículo expandido al principio
+                parentDiv.insertBefore(expandedArticle, parentDiv.firstChild);
+                
+                // Reordenar los índices en el array articles y actualizar los IDs
+                const movedArticle = articles.splice(expandedIndex, 1)[0];
+                articles.unshift(movedArticle);
+                
+                // Actualizar todos los índices en los onclick y IDs
+                updateArticleIndices();
+                
+                // Actualizar selectedIndex para que apunte al primer elemento
+                selectedIndex = 0;
+            }
+        }
+        
+        function updateArticleIndices() {
+            const feedsContent = document.getElementById('feeds-content');
+            const articleLines = feedsContent.querySelectorAll('.article-line');
+            
+            articleLines.forEach((line, newIndex) => {
+                // Actualizar onclick
+                line.setAttribute('onclick', 'toggleArticle(' + newIndex + ', event)');
+                
+                // Actualizar ID del contenido
+                const content = line.querySelector('.article-content');
+                if (content) {
+                    content.id = 'content-' + newIndex;
+                }
+                
+                // Actualizar botones
+                const buttons = line.querySelectorAll('[onclick*="saveArticle"], [onclick*="loveArticle"], [onclick*="shareArticle"]');
+                buttons.forEach(button => {
+                    const onclick = button.getAttribute('onclick');
+                    if (onclick.includes('saveArticle')) {
+                        button.setAttribute('onclick', 'saveArticle(' + newIndex + ', event)');
+                    } else if (onclick.includes('loveArticle')) {
+                        button.setAttribute('onclick', 'loveArticle(' + newIndex + ', event)');
+                    } else if (onclick.includes('shareArticle')) {
+                        button.setAttribute('onclick', 'shareArticle(' + newIndex + ', event)');
+                    }
+                });
+            });
         }
         
         // Función mejorada para cargar contenido completo del artículo
@@ -661,7 +835,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             const article = articles[index];
             const content = document.getElementById('content-' + index);
             
-            content.innerHTML = 'Cargando contenido completo...';
+            content.innerHTML = 'Loading full content...';
             
             // Intentar obtener el contenido completo del artículo
             fetchFullArticleContent(article.link)
@@ -701,17 +875,44 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         // Función para mostrar el contenido del artículo
         function displayArticleContent(content, article, fullContent, index) {
             // Usar contenido completo si está disponible, sino usar descripción
-            let articleText = fullContent || article.description || 'Contenido no disponible.';
+            let articleText = fullContent || article.description || 'Content not available.';
             
-            // Limpiar HTML si es necesario
+            // Limpiar HTML pero preservar estructura de párrafos
             if (!fullContent) {
+                // Convertir elementos de bloque a saltos de línea antes de limpiar
+                articleText = articleText.replace(/<\/p>/gi, '\n\n');
+                articleText = articleText.replace(/<br\s*\/?>/gi, '\n');
+                articleText = articleText.replace(/<\/div>/gi, '\n');
+                articleText = articleText.replace(/<\/h[1-6]>/gi, '\n\n');
+                
+                // Limpiar etiquetas HTML
                 articleText = articleText.replace(/<[^>]*>/g, '');
                 articleText = articleText.replace(/&[^;]+;/g, ' ');
                 articleText = articleText.trim();
                 
-                if (articleText.length > 1200) {
-                    articleText = articleText.substring(0, 1200) + '...';
-                }
+                // NO limitar longitud - mostrar contenido completo
+            } else {
+                // Para contenido completo, preservar mejor la estructura
+                articleText = articleText.replace(/<\/p>/gi, '\n\n');
+                articleText = articleText.replace(/<br\s*\/?>/gi, '\n');
+                articleText = articleText.replace(/<\/div>/gi, '\n');
+                articleText = articleText.replace(/<\/h[1-6]>/gi, '\n\n');
+                articleText = articleText.replace(/<[^>]*>/g, '');
+                articleText = articleText.replace(/&[^;]+;/g, ' ');
+                
+                // Limpiar saltos de línea excesivos pero mantener párrafos
+                articleText = articleText.replace(/\n\s*\n\s*\n/g, '\n\n');
+                articleText = articleText.trim();
+            }
+            
+            // Convertir saltos de línea a HTML para mostrar correctamente
+            if (articleText.includes('\n\n')) {
+                // Si hay párrafos dobles, tratarlos como párrafos separados
+                const paragraphs = articleText.split('\n\n').filter(p => p.trim());
+                articleText = paragraphs.map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+            } else {
+                // Si no hay párrafos dobles, solo reemplazar saltos de línea simples
+                articleText = '<p>' + articleText.replace(/\n/g, '<br>') + '</p>';
             }
             
             // Determinar posición de botones según configuración
@@ -722,10 +923,10 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 'position: absolute; left: 15px; top: 15px; text-align: left;';
             
             const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                '<div id="saved-btn-' + index + '" onclick="toggleSaved(' + index + ', event)" style="color: ' + (article.isSaved ? '#FFD700' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isSaved ? '[GUARDADO]' : '[GUARDAR]') + '</div>' +
-                '<div id="loved-btn-' + index + '" onclick="toggleLoved(' + index + ')" style="color: ' + (article.isLoved ? '#FF69B4' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isLoved ? '[FAVORITO]' : '[MARCAR FAV]') + '</div>' +
-                '<div onclick="shareArticle(' + index + ')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[COMPARTIR]</div>' +
-                '<div onclick="window.open(\'' + article.link + '\', \'_blank\')" style="color: #ffff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[LEER ORIGINAL]</div>' +
+                '<div id="saved-btn-' + index + '" onclick="toggleSaved(' + index + ', event)" style="color: ' + (article.isSaved ? '#FFD700' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isSaved ? '[SAVED]' : '[SAVE S]') + '</div>' +
+                '<div id="loved-btn-' + index + '" onclick="toggleLoved(' + index + ')" style="color: ' + (article.isLoved ? '#FF69B4' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isLoved ? '[LOVED]' : '[LOVE L]') + '</div>' +
+                '<div onclick="shareArticle(' + index + ')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[SHARE C]</div>' +
+                '<div onclick="window.open(\'' + article.link + '\', \'_blank\')" style="color: #ffff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[ORIGINAL O]</div>' +
                 '</div>';
             
             // Extraer y procesar imágenes del contenido original
@@ -745,9 +946,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 }
                 
                 if (images.length > 0) {
-                    imageHTML = '<div style="margin-bottom: 15px; text-align: center;">';
+                    imageHTML = '<div style="margin-bottom: 15px; text-align: left;">';
                     images.forEach(imgSrc => {
-                        imageHTML += '<img src="' + imgSrc + '" style="max-width: 200px; max-height: 150px; margin: 5px; border: 1px solid #333; object-fit: cover; display: none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'inline-block\'">';
+                        imageHTML += '<img src="' + imgSrc + '" style="max-width: 280px; max-height: 200px; margin: 5px 10px 5px 0; border: 1px solid #333; object-fit: cover; display: none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'inline-block\'">';
                     });
                     imageHTML += '</div>';
                 }
@@ -761,132 +962,23 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                               '<div style="' + contentPadding + '">' +
                               (imageHTML || '') +
                               '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + article.date + ' | ' + article.source + '</div>' +
-                              '<div style="margin-bottom: 15px;"><a href="' + article.link + '" target="_blank" style="color: #ffff00; text-decoration: none; font-weight: bold;">' + article.title + '</a></div>' +
-                              '<div style="line-height: 1.6; color: #ccc;">' + articleText + '</div>' +
-                              (fullContent ? '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">CONTENIDO COMPLETO CARGADO</div>' : '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">Haz doble clic en la línea para ver el artículo completo en el sitio original</div>') +
+                              '<div style="margin-bottom: 15px;"><a href="' + article.link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + article.title + '</a></div>' +
+                              '<div style="line-height: 1.6; color: #ccc; text-align: justify;">' + articleText + '</div>' +
+                              (fullContent ? '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">FULL CONTENT LOADED</div>' : '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">RSS feed content. Double click on the line to view the complete article on the original site</div>') +
                               '</div>';
-        }
-            if (event) {
-                // Si es doble clic o Ctrl+clic, abrir enlace
-                if (event.detail === 2 || event.ctrlKey) {
-                    window.open(articles[index].link, '_blank');
-                    return;
-                }
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
-            const content = document.getElementById('content-' + index);
-            const isCurrentlyExpanded = content.classList.contains('expanded');
-            
-            // Cerrar todos los artículos
-            document.querySelectorAll('.article-content').forEach(el => {
-                el.classList.remove('expanded');
-            });
-            
-            // Abrir el seleccionado si no estaba abierto
-            if (!isCurrentlyExpanded) {
-                content.classList.add('expanded');
-                selectedIndex = index;
-                
-                // Cargar contenido si no está cargado
-                if (!content.innerHTML.trim()) {
-                    content.innerHTML = 'Cargando contenido...';
-                    loadArticleContent(index);
-                }
-            } else {
-                // Al cerrar un artículo, mantener el selectedIndex actual
-                // selectedIndex = -1; // Comentamos esta línea para mantener la posición
-            }
-        }
-        
-        function loadArticleContent(index) {
-            const article = articles[index];
-            const content = document.getElementById('content-' + index);
-            
-            // Simular carga de contenido
-            setTimeout(() => {
-                // Limpiar la descripción de HTML tags
-                let cleanDescription = article.description || 'Contenido no disponible. Haz doble clic en la línea para ver el artículo completo.';
-                cleanDescription = cleanDescription.replace(/<[^>]*>/g, ''); // Quitar HTML tags
-                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' '); // Quitar HTML entities
-                cleanDescription = cleanDescription.trim();
-                
-                // Truncar si es muy largo
-                if (cleanDescription.length > 800) {
-                    cleanDescription = cleanDescription.substring(0, 800) + '...';
-                }
-                
-                // Determinar posición de botones según configuración
-                const buttonsPosition = localStorage.getItem('buttonsPosition') || 'right';
-                
-                // Botones con posición configurable
-                const buttonStyle = buttonsPosition === 'right' ? 
-                    'position: absolute; right: 15px; top: 15px; text-align: right;' :
-                    'position: absolute; left: 15px; top: 15px; text-align: left;';
-                
-                const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                    '<div id="saved-btn-' + index + '" onclick="toggleSaved(' + index + ', event)" style="color: ' + (article.isSaved ? '#FFD700' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isSaved ? '[GUARDADO]' : '[GUARDAR]') + '</div>' +
-                    '<div id="loved-btn-' + index + '" onclick="toggleLoved(' + index + ')" style="color: ' + (article.isLoved ? '#FF69B4' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isLoved ? '[FAVORITO]' : '[MARCAR FAV]') + '</div>' +
-                    '<div onclick="shareArticle(' + index + ')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[COMPARTIR]</div>' +
-                    '</div>';
-                
-                // Extraer y procesar imágenes del contenido original (sin limpiar)
-                let imageHTML = '';
-                const originalDescription = article.description || '';
-                
-                if (originalDescription && originalDescription.trim().length > 0) {
-                    const imgRegex = /<img[^>]+src=["\']([^"\']+)["\'][^>]*>/gi;
-                    let match;
-                    
-                    // Buscar múltiples imágenes
-                    const images = [];
-                    while ((match = imgRegex.exec(originalDescription)) !== null && images.length < 3) {
-                        // Validar que la URL de la imagen sea válida
-                        const imgSrc = match[1];
-                        if (imgSrc && (imgSrc.startsWith('http://') || imgSrc.startsWith('https://') || imgSrc.startsWith('//'))) {
-                            images.push(imgSrc);
-                        }
-                    }
-                    
-                    // Generar HTML para imágenes solo si hay imágenes válidas
-                    if (images.length > 0) {
-                        imageHTML = '<div style="margin-bottom: 15px; text-align: center;">';
-                        images.forEach(imgSrc => {
-                            imageHTML += '<img src="' + imgSrc + '" style="max-width: 150px; max-height: 100px; margin: 5px; border: 1px solid #333; object-fit: cover; display: none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'inline-block\'; console.log(\'Imagen cargada: \' + this.src)">';
-                        });
-                        imageHTML += '</div>';
-                    }
-                }
-                
-                // Ajustar padding según posición de botones
-                const contentPadding = buttonsPosition === 'right' ? 
-                    'padding-right: 100px;' : 
-                    'padding-left: 100px;';
-                
-                content.innerHTML = buttonsHTML +
-                                  '<div style="' + contentPadding + '">' +
-                                  (imageHTML || '') +
-                                  '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + article.date + ' | ' + article.source + '</div>' +
-                                  '<div style="margin-bottom: 10px;"><a href="' + article.link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + article.title + '</a></div>' +
-                                  cleanDescription +
-                                  '</div>';
-            }, 300);
         }
         
         document.addEventListener('keydown', function(event) {
-            // Obtener la página activa
-            const activePage = document.querySelector('.page-content[style*="display: block"]').id.replace('-content', '');
-            
+            // Usar la variable global currentPage en lugar de buscar en el DOM
             let totalArticles;
             let articleContainers;
-            if (activePage === 'feeds') {
+            if (currentPage === 'feeds') {
                 articleContainers = document.querySelectorAll('#feeds-content .article-container');
                 totalArticles = articleContainers.length;
-            } else if (activePage === 'saved') {
+            } else if (currentPage === 'saved') {
                 articleContainers = document.querySelectorAll('#saved-articles-list .article-container');
                 totalArticles = articleContainers.length;
-            } else if (activePage === 'loved') {
+            } else if (currentPage === 'loved') {
                 articleContainers = document.querySelectorAll('#loved-articles-list .article-container');
                 totalArticles = articleContainers.length;
             } else {
@@ -905,15 +997,21 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 case 'Space':
                     event.preventDefault();
                     if (selectedIndex >= 0 && totalArticles > 0) {
+                        // Scroll al principio de la página antes de expandir
+                        window.scrollTo({
+                            top: 0,
+                            behavior: 'smooth'
+                        });
+                        
                         // Expandir artículo según la página
-                        if (activePage === 'feeds') {
+                        if (currentPage === 'feeds') {
                             toggleArticle(selectedIndex);
-                        } else if (activePage === 'saved' || activePage === 'loved') {
+                        } else if (currentPage === 'saved' || currentPage === 'loved') {
                             // Para saved/loved necesitamos usar un ID único basado en el link
                             const container = articleContainers[selectedIndex];
                             if (container) {
                                 const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                const prefix = activePage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
                                 const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
                                 toggleArticleGeneric(container, contentId, link);
                             }
@@ -925,20 +1023,38 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 case 'KeyJ':
                     event.preventDefault();
                     if (expandedArticle) {
-                        // Si hay artículo expandido, ir al siguiente y expandirlo
+                        // Si hay artículo expandido, ir al siguiente y expandirlo SIN mover al top
                         if (selectedIndex < totalArticles - 1) {
+                            // Cerrar artículo actual
+                            document.querySelectorAll('.article-content').forEach(el => {
+                                el.classList.remove('expanded');
+                            });
+                            
                             selectedIndex++;
                             highlightSelected();
-                            // Expandir según la página activa
-                            if (activePage === 'feeds') {
-                                toggleArticle(selectedIndex);
-                            } else if (activePage === 'saved' || activePage === 'loved') {
+                            
+                            // Expandir el siguiente artículo SIN mover
+                            if (currentPage === 'feeds') {
+                                const content = document.getElementById('content-' + selectedIndex);
+                                if (content) {
+                                    content.classList.add('expanded');
+                                    
+                                    // Marcar artículo como leído
+                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + selectedIndex + ',"]');
+                                    if (articleLine) {
+                                        articleLine.classList.add('read');
+                                        articles[selectedIndex].isRead = true;
+                                    }
+                                    
+                                    loadArticleContent(selectedIndex);
+                                }
+                            } else if (currentPage === 'saved' || currentPage === 'loved') {
                                 const container = articleContainers[selectedIndex];
                                 if (container) {
                                     const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                    const prefix = activePage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                    const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
                                     const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
-                                    toggleArticleGeneric(container, contentId, link, true); // forceOpen = true para navegación
+                                    toggleArticleGeneric(container, contentId, link, true);
                                 }
                             }
                         }
@@ -955,20 +1071,38 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 case 'KeyK':
                     event.preventDefault();
                     if (expandedArticle) {
-                        // Si hay artículo expandido, ir al anterior y expandirlo
+                        // Si hay artículo expandido, ir al anterior y expandirlo SIN mover al top
                         if (selectedIndex > 0) {
+                            // Cerrar artículo actual
+                            document.querySelectorAll('.article-content').forEach(el => {
+                                el.classList.remove('expanded');
+                            });
+                            
                             selectedIndex--;
                             highlightSelected();
-                            // Expandir según la página activa
-                            if (activePage === 'feeds') {
-                                toggleArticle(selectedIndex);
-                            } else if (activePage === 'saved' || activePage === 'loved') {
+                            
+                            // Expandir el anterior artículo SIN mover
+                            if (currentPage === 'feeds') {
+                                const content = document.getElementById('content-' + selectedIndex);
+                                if (content) {
+                                    content.classList.add('expanded');
+                                    
+                                    // Marcar artículo como leído
+                                    const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + selectedIndex + ',"]');
+                                    if (articleLine) {
+                                        articleLine.classList.add('read');
+                                        articles[selectedIndex].isRead = true;
+                                    }
+                                    
+                                    loadArticleContent(selectedIndex);
+                                }
+                            } else if (currentPage === 'saved' || currentPage === 'loved') {
                                 const container = articleContainers[selectedIndex];
                                 if (container) {
                                     const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                    const prefix = activePage === 'saved' ? 'content-saved-' : 'content-loved-';
+                                    const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
                                     const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
-                                    toggleArticleGeneric(container, contentId, link, true); // forceOpen = true para navegación
+                                    toggleArticleGeneric(container, contentId, link, true);
                                 }
                             }
                         }
@@ -989,9 +1123,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     if (selectedIndex >= 0 && totalArticles > 0) {
                         // Obtener el enlace según la página
                         let link;
-                        if (activePage === 'feeds') {
+                        if (currentPage === 'feeds') {
                             link = articles[selectedIndex].link;
-                        } else if (activePage === 'saved' || activePage === 'loved') {
+                        } else if (currentPage === 'saved' || currentPage === 'loved') {
                             const container = articleContainers[selectedIndex];
                             if (container) {
                                 link = container.querySelector('.full-line-link').getAttribute('data-link');
@@ -1007,9 +1141,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     event.preventDefault();
                     if (selectedIndex >= 0 && totalArticles > 0) {
                         // Obtener el artículo actual según la página
-                        if (activePage === 'feeds') {
+                        if (currentPage === 'feeds') {
                             toggleSaved(selectedIndex);
-                        } else if (activePage === 'saved' || activePage === 'loved') {
+                        } else if (currentPage === 'saved' || currentPage === 'loved') {
                             // Para saved/loved, obtenemos el artículo del DOM
                             const container = articleContainers[selectedIndex];
                             if (container) {
@@ -1027,9 +1161,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     event.preventDefault();
                     if (selectedIndex >= 0 && totalArticles > 0) {
                         // Obtener el artículo actual según la página
-                        if (activePage === 'feeds') {
+                        if (currentPage === 'feeds') {
                             toggleLoved(selectedIndex);
-                        } else if (activePage === 'saved' || activePage === 'loved') {
+                        } else if (currentPage === 'saved' || currentPage === 'loved') {
                             // Para saved/loved, obtenemos el artículo del DOM
                             const container = articleContainers[selectedIndex];
                             if (container) {
@@ -1047,6 +1181,25 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     event.preventDefault();
                     if (selectedIndex >= 0) {
                         shareArticle(selectedIndex);
+                    }
+                    break;
+                    
+                case 'KeyO':
+                    event.preventDefault();
+                    if (selectedIndex >= 0 && totalArticles > 0) {
+                        // Obtener el enlace según la página y abrirlo
+                        let link;
+                        if (currentPage === 'feeds') {
+                            link = articles[selectedIndex].link;
+                        } else if (currentPage === 'saved' || currentPage === 'loved') {
+                            const container = articleContainers[selectedIndex];
+                            if (container) {
+                                link = container.querySelector('.full-line-link').getAttribute('data-link');
+                            }
+                        }
+                        if (link) {
+                            window.open(link, '_blank');
+                        }
                     }
                     break;
                     
@@ -1101,21 +1254,34 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             
             // Agregar highlight al seleccionado
             if (selectedIndex >= 0) {
-                // Buscar en la página activa
-                const activePage = document.querySelector('.page-content[style*="display: block"]').id.replace('-content', '');
+                // Buscar en la página activa usando currentPage
                 let lines;
                 
-                if (activePage === 'feeds') {
+                if (currentPage === 'feeds') {
                     lines = document.querySelectorAll('#feeds-content .article-line');
-                } else if (activePage === 'saved') {
+                } else if (currentPage === 'saved') {
                     lines = document.querySelectorAll('#saved-articles-list .article-line');
-                } else if (activePage === 'loved') {
+                } else if (currentPage === 'loved') {
                     lines = document.querySelectorAll('#loved-articles-list .article-line');
                 }
                 
                 if (lines && lines[selectedIndex]) {
                     lines[selectedIndex].classList.add('selected');
-                    lines[selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Calcular la posición para que el elemento seleccionado esté en la primera línea visible
+                    const element = lines[selectedIndex];
+                    const headerHeight = 160; // Altura del header + pestañas
+                    
+                    // Obtener la posición absoluta del elemento en la página
+                    const elementTop = element.offsetTop;
+                    
+                    // Scroll para que el elemento esté exactamente debajo del header (primera línea visible)
+                    const scrollTarget = elementTop - headerHeight;
+                    
+                    window.scrollTo({
+                        top: Math.max(0, scrollTarget), // Evitar scroll negativo
+                        behavior: 'smooth'
+                    });
                 }
             }
         }
@@ -1140,9 +1306,19 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             if (!isCurrentlyExpanded || forceOpen) {
                 content.classList.add('expanded');
                 
+                // Scroll para que el artículo aparezca después del header fijo
+                setTimeout(() => {
+                    container.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                    // Ajuste adicional para el header fijo
+                    window.scrollBy(0, -180);
+                }, 100);
+                
                 // Cargar contenido si no está cargado
                 if (!content.innerHTML.trim()) {
-                    content.innerHTML = 'Cargando contenido...';
+                    content.innerHTML = 'Loading content...';
                     loadArticleContentGeneric(content, container, link);
                 }
             }
@@ -1163,15 +1339,31 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             const source = metaParts[1] || '';
             
             setTimeout(() => {
-                // Limpiar la descripción de etiquetas HTML
-                let cleanDescription = description || 'Contenido no disponible. Haz doble clic en la línea para ver el artículo completo.';
-                cleanDescription = cleanDescription.replace(/<[^>]*>/g, ''); // Quitar etiquetas HTML
-                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' '); // Quitar entidades HTML
+                // Limpiar la descripción preservando estructura de párrafos
+                let cleanDescription = description || 'Content not available. Double click on the line to view the complete article.';
+                
+                // Convertir elementos de bloque a saltos de línea antes de limpiar
+                cleanDescription = cleanDescription.replace(/<\/p>/gi, '\n\n');
+                cleanDescription = cleanDescription.replace(/<br\s*\/?>/gi, '\n');
+                cleanDescription = cleanDescription.replace(/<\/div>/gi, '\n');
+                cleanDescription = cleanDescription.replace(/<\/h[1-6]>/gi, '\n\n');
+                
+                // Limpiar etiquetas HTML y entidades
+                cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
+                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
+                
+                // Limpiar saltos de línea excesivos pero mantener párrafos
+                cleanDescription = cleanDescription.replace(/\n\s*\n\s*\n/g, '\n\n');
                 cleanDescription = cleanDescription.trim();
                 
-                // Truncar si es muy largo
-                if (cleanDescription.length > 800) {
-                    cleanDescription = cleanDescription.substring(0, 800) + '...';
+                // Convertir saltos de línea a HTML para mostrar correctamente
+                if (cleanDescription.includes('\n\n')) {
+                    // Si hay párrafos dobles, tratarlos como párrafos separados
+                    const paragraphs = cleanDescription.split('\n\n').filter(p => p.trim());
+                    cleanDescription = paragraphs.map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
+                } else {
+                    // Si no hay párrafos dobles, solo reemplazar saltos de línea simples
+                    cleanDescription = '<p>' + cleanDescription.replace(/\n/g, '<br>') + '</p>';
                 }
                 
                 // Determinar posición de botones según configuración
@@ -1183,9 +1375,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     'position: absolute; left: 15px; top: 15px; text-align: left;';
                 
                 const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                    '<div onclick="toggleSavedByLink(\'' + link + '\')" style="color: #FFD700; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[GUARDADO]</div>' +
-                    '<div onclick="toggleLovedByLink(\'' + link + '\')" style="color: #FF69B4; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[FAVORITO]</div>' +
-                    '<div onclick="shareArticleByLink(\'' + link + '\')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[COMPARTIR]</div>' +
+                    '<div onclick="toggleSavedByLink(\'' + link + '\')" style="color: #FFD700; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[SAVED]</div>' +
+                    '<div onclick="toggleLovedByLink(\'' + link + '\')" style="color: #FF69B4; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[FAVORITE]</div>' +
+                    '<div onclick="shareArticleByLink(\'' + link + '\')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[SHARE]</div>' +
                     '</div>';
                 
                 // NO mostrar imágenes en guardados/favoritos para evitar imágenes rotas
@@ -1204,7 +1396,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                                   (imageHTML || '') +
                                   '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + date + ' | ' + source + '</div>' +
                                   '<div style="margin-bottom: 10px;"><a href="' + link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + title + '</a></div>' +
-                                  cleanDescription +
+                                  '<div style="line-height: 1.6; color: #ccc; text-align: justify;">' + cleanDescription + '</div>' +
                                   '</div>';
             }, 300);
         }
@@ -1230,13 +1422,13 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         function shareArticleByLink(link) {
             if (navigator.share) {
                 navigator.share({
-                    title: 'Artículo interesante',
+                    title: 'Interesting Article',
                     url: link
                 });
             } else {
-                // Fallback: copiar al clipboard
+                // Fallback: copy to clipboard
                 navigator.clipboard.writeText(link).then(() => {
-                    alert('Enlace copiado al portapapeles');
+                    alert('Link copied to clipboard');
                 });
             }
         }
@@ -1253,7 +1445,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             article.isSaved = !article.isSaved;
             
             if (button) {
-                button.textContent = article.isSaved ? '[GUARDADO]' : '[GUARDAR]';
+                button.textContent = article.isSaved ? '[SAVED]' : '[SAVE]';
                 button.style.color = article.isSaved ? '#FFD700' : '#00ff00';
             }
             
@@ -1271,7 +1463,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             article.isLoved = !article.isLoved;
             
             if (button) {
-                button.textContent = article.isLoved ? '[FAVORITO]' : '[MARCAR FAV]';
+                button.textContent = article.isLoved ? '[LOVED]' : '[LOVE]';
                 button.style.color = article.isLoved ? '#FF69B4' : '#00ff00';
             }
             
@@ -1292,7 +1484,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             }
             
             if (lovedArticles.length === 0) {
-                lovedList.innerHTML = '<p style="color: #888;">No hay artículos favoritos aún.</p>';
+                lovedList.innerHTML = '<p style="color: #888;">No favorite articles yet.</p>';
             } else {
                 let listHTML = '';
                 lovedArticles.forEach((article, index) => {
@@ -1340,7 +1532,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             }
             
             if (savedArticles.length === 0) {
-                savedList.innerHTML = '<p style="color: #888;">No hay artículos guardados aún.</p>';
+                savedList.innerHTML = '<p style="color: #888;">No saved articles yet.</p>';
             } else {
                 let listHTML = '';
                 savedArticles.forEach((article, index) => {
@@ -1419,9 +1611,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     url: article.link
                 });
             } else {
-                // Fallback: copiar al clipboard
+                // Fallback: copy to clipboard
                 navigator.clipboard.writeText(article.link).then(() => {
-                    alert('Enlace copiado al portapapeles');
+                    alert('Link copied to clipboard');
                 });
             }
         }
@@ -1455,6 +1647,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             if (event) {
                 event.preventDefault();
             }
+            
+            // Actualizar la página actual
+            currentPage = pageName;
             
             // Ocultar todos los contenidos
             const contentIds = ['feeds-content', 'import-content', 'saved-content', 'loved-content', 'config-content'];
@@ -1524,8 +1719,36 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         
         document.addEventListener('DOMContentLoaded', function() {
-            // Mostrar pantalla de carga al inicio
-            showLoadingScreen();
+            // Función para actualizar fecha y hora
+            function updateDateTime() {
+                const now = new Date();
+                const dateOptions = { 
+                    weekday: 'short', 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                };
+                const timeOptions = { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: false
+                };
+                
+                const dateElement = document.getElementById('current-date');
+                const timeElement = document.getElementById('current-time');
+                
+                if (dateElement && timeElement) {
+                    dateElement.textContent = now.toLocaleDateString('es-ES', dateOptions);
+                    timeElement.textContent = now.toLocaleTimeString('es-ES', timeOptions);
+                }
+            }
+            
+            // Actualizar inmediatamente
+            updateDateTime();
+            
+            // Actualizar cada segundo
+            setInterval(updateDateTime, 1000);
             
             // Recopilar información de artículos
             document.querySelectorAll('.article-container').forEach((container, index) => {
@@ -1539,7 +1762,10 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                     date: parts[0] || '',
                     source: parts[1] || '',
                     link: span.getAttribute('data-link'),
-                    description: span.getAttribute('data-description') || ''
+                    description: span.getAttribute('data-description') || '',
+                    isRead: false,
+                    isSaved: false,
+                    isLoved: false
                 });
             });
             
@@ -1569,40 +1795,31 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
     </script>
 </head>
 <body>
-    <!-- Pantalla de carga -->
-    <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <div class="loading-brand">
-▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
-█▀█ █ ▀█ █▄▄ █▀█ █▀▀
-
-» A LIBERTARIAN RSS READER «
-            </div>
-            <div class="loading-text">CARGANDO ANCAP<span class="loading-dots"></span></div>
-            <div class="loading-bar">
-                <div class="loading-progress"></div>
-            </div>
-        </div>
-    </div>
-    
     <div class="container">
         <div class="main-header">
+            <div class="datetime-display">
+                <div id="current-date"></div>
+                <div id="current-time"></div>
+            </div>
             <div class="ascii-logo">
 ▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
 █▀█ █ ▀█ █▄▄ █▀█ █▀▀
             </div>
             <div class="subtitle">» A LIBERTARIAN RSS READER «</div>
+            <div style="position: absolute; top: 8px; right: 10px;">
+                <a href="/logout" style="color: #888; text-decoration: none; font-size: 10px;">[LOGOUT]</a>
+            </div>
         </div>
         <div class="tabs">
             <a class="tab tab-active" href="#" onclick="showPage('feeds', event)">FEEDS <span id="feeds-count"></span> <span class="tab-shortcut">(F1)</span></a>
-            <a class="tab" href="#" onclick="showPage('saved', event)">GUARDADOS <span id="saved-count"></span> <span class="tab-shortcut">(F2)</span></a>
-            <a class="tab" href="#" onclick="showPage('loved', event)">FAVORITOS <span id="loved-count"></span> <span class="tab-shortcut">(F3)</span></a>
+            <a class="tab" href="#" onclick="showPage('saved', event)">SAVED <span id="saved-count"></span> <span class="tab-shortcut">(F2)</span></a>
+            <a class="tab" href="#" onclick="showPage('loved', event)">LOVED <span id="loved-count"></span> <span class="tab-shortcut">(F3)</span></a>
             <a class="tab" href="#" onclick="showPage('config', event)">CONFIG <span class="tab-shortcut">(F4)</span></a>
         </div>
-        <div class="info">` + time.Now().Format("02/01/2006 15:04") + ` | ` + fmt.Sprintf("%d artículos cargados", len(data.Articles)) + `</div>
         
         <!-- Contenido principal de feeds -->
-        <div id="feeds-content" class="page-content" style="display: block;">`
+        <div id="feeds-content" class="page-content" style="display: block;">
+            <div style="height: 1px; background: #000; margin-bottom: 0px;"></div>`
 
 	for i, article := range data.Articles {
 		if i >= 50 {
@@ -1646,7 +1863,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 		html += `<div class="article-container">
             <div class="article-line" onclick="toggleArticle(` + fmt.Sprintf("%d", i) + `, event)">
                 <span class="full-line-link" data-link="` + article.Link + `" data-description="` + description + `">
-                    <span class="meta">` + article.Date + ` | ` + article.Source + ` | </span>
+                    <span class="meta">` + article.Date + ` | <span style="color: #ffff00;">` + article.Source + `</span> | </span>
                     <span class="title">` + title + `</span>
                 </span>
             </div>
@@ -1656,72 +1873,72 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 
 	html += `        </div>
         
-        <!-- Página de Saved -->
+        <!-- Saved Articles Page -->
         <div id="saved-content" class="page-content" style="display: none;">
-            <div class="page-header">ARTÍCULOS GUARDADOS (F2)</div>
-            <p>Lista de artículos marcados como guardados.</p>
+            <div class="page-header">SAVED ARTICLES (F2)</div>
+            <p>List of articles marked as saved.</p>
             <div id="saved-articles-list">
-                <p style="color: #888;">No hay artículos guardados aún.</p>
+                <p style="color: #888;">No saved articles yet.</p>
             </div>
         </div>
         
-        <!-- Página de Loved -->
+        <!-- Loved Page -->
         <div id="loved-content" class="page-content" style="display: none;">
-            <div class="page-header">ARTÍCULOS FAVORITOS (F3)</div>
-            <p>Lista de artículos marcados como favoritos.</p>
+            <div class="page-header">LOVED ARTICLES (F3)</div>
+            <p>List of articles marked as loved.</p>
             <div id="loved-articles-list">
-                <p style="color: #888;">No hay artículos favoritos aún.</p>
+                <p style="color: #888;">No favorite articles yet.</p>
             </div>
         </div>
         
-        <!-- Página de Config -->
+        <!-- Config Page -->
         <div id="config-content" class="page-content" style="display: none;">
-            <div class="page-header">CONFIGURACIÓN (F4)</div>
+            <div class="page-header">CONFIGURATION (F4)</div>
             
             <div class="config-section">
-                <h3>Feeds RSS</h3>
-                <label class="config-label">URL del Feed RSS:</label>
+                <h3>RSS Feeds</h3>
+                <label class="config-label">RSS Feed URL:</label>
                 <input type="text" class="config-input" placeholder="https://example.com/feed.xml">
-                <button onclick="alert('Función por implementar')" style="background: none; border: 1px solid #00ff00; color: #00ff00; padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; margin-left: 10px;">Agregar</button>
+                <button onclick="alert('Feature to be implemented')" style="background: none; border: 1px solid #00ff00; color: #00ff00; padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; margin-left: 10px;">Add</button>
                 
                 <br><br>
-                <label class="config-label">Importar archivo OPML:</label>
+                <label class="config-label">Import OPML file:</label>
                 <input type="file" class="config-input" accept=".opml,.xml">
-                <button onclick="alert('Función por implementar')" style="background: none; border: 1px solid #00ff00; color: #00ff00; padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; margin-left: 10px;">Importar</button>
+                <button onclick="alert('Feature to be implemented')" style="background: none; border: 1px solid #00ff00; color: #00ff00; padding: 3px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; margin-left: 10px;">Import</button>
             </div>
             
             <div class="config-section">
-                <h3>Interfaz</h3>
-                <label class="config-label">Posición de botones en artículos:</label>
+                <h3>Interface</h3>
+                <label class="config-label">Article buttons position:</label>
                 <select id="buttonsConfigModal" onchange="changeButtonsPosition()" class="config-select">
-                    <option value="right">Derecha</option>
-                    <option value="left">Izquierda</option>
+                    <option value="right">Right</option>
+                    <option value="left">Left</option>
                 </select>
             </div>
             
             <div class="config-section">
                 <h3>Feeds</h3>
-                <label class="config-label">Intervalo de actualización (minutos):</label>
+                <label class="config-label">Update interval (minutes):</label>
                 <input type="number" class="config-input" value="30" min="5" max="1440">
             </div>
             
             <div class="config-section">
-                <h3>Apariencia</h3>
-                <label class="config-label">Tema:</label>
+                <h3>Appearance</h3>
+                <label class="config-label">Theme:</label>
                 <select class="config-select">
-                    <option value="green">Verde (actual)</option>
-                    <option value="blue">Azul</option>
-                    <option value="amber">Ámbar</option>
+                    <option value="green">Green (current)</option>
+                    <option value="blue">Blue</option>
+                    <option value="amber">Amber</option>
                 </select>
             </div>
             
             <div class="config-section">
-                <h3>Atajos de teclado</h3>
-                <p><strong>F1-F4:</strong> Cambiar entre páginas</p>
-                <p><strong>↑/↓, J/K:</strong> Navegar artículos</p>
-                <p><strong>Space/Enter:</strong> Expandir artículo</p>
-                <p><strong>S/L/C:</strong> Guardar/Favorito/Compartir</p>
-                <p><strong>Escape:</strong> Volver a FEEDS</p>
+                <h3>Keyboard shortcuts</h3>
+                <p><strong>F1-F4:</strong> Switch between pages</p>
+                <p><strong>↑/↓, J/K:</strong> Navigate articles</p>
+                <p><strong>Space/Enter:</strong> Expand article</p>
+                <p><strong>S/L/C:</strong> Save/Favorite/Share</p>
+                <p><strong>Escape:</strong> Return to FEEDS</p>
             </div>
         </div>
     </div>
@@ -1770,6 +1987,9 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		allArticles = allArticles[:50]
 	}
 
+	// Precargar contenido completo de los primeros artículos en segundo plano
+	go preloadArticleContent(allArticles)
+
 	data := TemplateData{
 		Articles: allArticles,
 	}
@@ -1777,6 +1997,59 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	elapsed := time.Since(startTime)
 	log.Printf("⚡ Home handler completed in %v with %d articles (CACHE + PARALLEL)", elapsed, len(allArticles))
 	renderHomePage(w, data)
+}
+
+func preloadArticleContent(articles []Article) {
+	log.Printf("🔄 Iniciando precarga de contenido para %d artículos", len(articles))
+
+	// Limitar a los primeros 10 artículos para no sobrecargar
+	maxArticles := 10
+	if len(articles) < maxArticles {
+		maxArticles = len(articles)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < maxArticles; i++ {
+		article := articles[i]
+
+		// Verificar si ya está en cache
+		articleContentCache.mutex.RLock()
+		cached, exists := articleContentCache.articles[article.Link]
+		articleContentCache.mutex.RUnlock()
+
+		// Solo precargar si no existe en cache o es muy antiguo
+		if !exists || time.Since(cached.Timestamp) > 30*time.Minute {
+			wg.Add(1)
+			go func(url string, title string) {
+				defer wg.Done()
+
+				content, err := scrapeArticleContent(url)
+				success := err == nil
+
+				// Si el scraping falla, usar contenido vacío pero marcar como intentado
+				if !success {
+					content = ""
+				}
+
+				// Guardar en cache
+				articleContentCache.mutex.Lock()
+				articleContentCache.articles[url] = CachedArticleContent{
+					Content:   content,
+					Timestamp: time.Now(),
+					Success:   success,
+				}
+				articleContentCache.mutex.Unlock()
+
+				if success {
+					log.Printf("✅ Precargado: %s", title)
+				} else {
+					log.Printf("⚠️ Falló precarga: %s", title)
+				}
+			}(article.Link, article.Title)
+		}
+	}
+	wg.Wait()
+	log.Printf("🎯 Precarga de contenido completada")
 }
 
 func fetchFeedArticles(feedURL string) []Article {
@@ -1967,12 +2240,36 @@ func scrapeArticleHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("🔍 Attempting to scrape article: %s", request.URL)
 
-	// Intentar hacer scraping del contenido completo
-	content, err := scrapeArticleContent(request.URL)
-	if err != nil {
-		log.Printf("❌ Error scraping article: %v", err)
-		http.Error(w, "Could not scrape article", http.StatusInternalServerError)
-		return
+	// Verificar primero si está en cache
+	articleContentCache.mutex.RLock()
+	cached, exists := articleContentCache.articles[request.URL]
+	articleContentCache.mutex.RUnlock()
+
+	var content string
+	var err error
+
+	if exists && cached.Success && time.Since(cached.Timestamp) < 30*time.Minute {
+		// Usar contenido del cache
+		content = cached.Content
+		log.Printf("🟢 Cache HIT para artículo: %s", request.URL)
+	} else {
+		// Hacer scraping y guardar en cache
+		content, err = scrapeArticleContent(request.URL)
+		if err != nil {
+			log.Printf("❌ Error scraping article: %v", err)
+			http.Error(w, "Could not scrape article", http.StatusInternalServerError)
+			return
+		}
+
+		// Guardar en cache
+		articleContentCache.mutex.Lock()
+		articleContentCache.articles[request.URL] = CachedArticleContent{
+			Content:   content,
+			Timestamp: time.Now(),
+			Success:   true,
+		}
+		articleContentCache.mutex.Unlock()
+		log.Printf("🔴 Cache MISS - scraped y guardado: %s", request.URL)
 	}
 
 	response := struct {
@@ -2024,8 +2321,15 @@ func scrapeArticleContent(url string) (string, error) {
 	// Limpiar y formatear el contenido
 	content = cleanScrapedContent(content)
 
-	if len(content) < 100 {
-		return "", fmt.Errorf("extracted content too short, probably failed")
+	// Ser más tolerante con el contenido corto
+	if len(content) < 50 {
+		// Intentar extraer al menos el título y algo de contenido
+		titleContent := extractTitleAndMeta(html)
+		if len(titleContent) > 20 {
+			content = titleContent
+		} else {
+			return "", fmt.Errorf("extracted content too short (%d chars), probably failed", len(content))
+		}
 	}
 
 	return content, nil
@@ -2034,12 +2338,12 @@ func scrapeArticleContent(url string) (string, error) {
 func extractMainContent(html string) string {
 	// Selectores comunes para contenido principal
 	contentSelectors := []string{
-		"<article[^>]*>([\\s\\S]*?)</article>",
-		"<div[^>]*class[^>]*[\"'].*?content.*?[\"'][^>]*>([\\s\\S]*?)</div>",
-		"<div[^>]*class[^>]*[\"'].*?post.*?[\"'][^>]*>([\\s\\S]*?)</div>",
-		"<div[^>]*class[^>]*[\"'].*?entry.*?[\"'][^>]*>([\\s\\S]*?)</div>",
-		"<div[^>]*class[^>]*[\"'].*?main.*?[\"'][^>]*>([\\s\\S]*?)</div>",
-		"<main[^>]*>([\\s\\S]*?)</main>",
+		`<article[^>]*>([\s\S]*?)</article>`,
+		`<div[^>]*class[^>]*["'].*?content.*?["'][^>]*>([\s\S]*?)</div>`,
+		`<div[^>]*class[^>]*["'].*?post.*?["'][^>]*>([\s\S]*?)</div>`,
+		`<div[^>]*class[^>]*["'].*?entry.*?["'][^>]*>([\s\S]*?)</div>`,
+		`<div[^>]*class[^>]*["'].*?main.*?["'][^>]*>([\s\S]*?)</div>`,
+		`<main[^>]*>([\s\S]*?)</main>`,
 	}
 
 	// Intentar cada selector
@@ -2052,13 +2356,48 @@ func extractMainContent(html string) string {
 	}
 
 	// Fallback: extraer entre <body> tags
-	bodyRe := regexp.MustCompile("<body[^>]*>([\\s\\S]*?)</body>")
+	bodyRe := regexp.MustCompile(`<body[^>]*>([\s\S]*?)</body>`)
 	matches := bodyRe.FindStringSubmatch(html)
 	if len(matches) > 1 {
 		return matches[1]
 	}
 
 	return html
+}
+
+func extractTitleAndMeta(html string) string {
+	// Fallback: extraer al menos título y meta descripción
+	var content strings.Builder
+
+	// Extraer título
+	titleRe := regexp.MustCompile(`<title[^>]*>([^<]+)</title>`)
+	if matches := titleRe.FindStringSubmatch(html); len(matches) > 1 {
+		content.WriteString("# ")
+		content.WriteString(strings.TrimSpace(matches[1]))
+		content.WriteString("\n\n")
+	}
+
+	// Extraer meta descripción
+	metaRe := regexp.MustCompile(`<meta[^>]*name=["\']description["\'][^>]*content=["\']([^"\']+)["\']`)
+	if matches := metaRe.FindStringSubmatch(html); len(matches) > 1 {
+		content.WriteString(strings.TrimSpace(matches[1]))
+		content.WriteString("\n\n")
+	}
+
+	// Extraer algunos párrafos del contenido
+	pRe := regexp.MustCompile(`<p[^>]*>([^<]{20,200})</p>`)
+	matches := pRe.FindAllStringSubmatch(html, 3)
+	for _, match := range matches {
+		if len(match) > 1 {
+			cleanP := strings.TrimSpace(match[1])
+			if len(cleanP) > 20 {
+				content.WriteString(cleanP)
+				content.WriteString("\n\n")
+			}
+		}
+	}
+
+	return content.String()
 }
 
 func cleanScrapedContent(content string) string {
@@ -2131,18 +2470,488 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "."+r.URL.Path)
 }
 
+func preloadFeedsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔄 Preload feeds handler called")
+
+	// Solo permitir GET
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Cargar feeds en segundo plano y llenar cache
+	feeds := loadFeeds()
+	var wg sync.WaitGroup
+
+	for _, feed := range feeds {
+		wg.Add(1)
+		go func(feedURL string) {
+			defer wg.Done()
+			// Esto llenará el cache
+			fetchFeedArticles(feedURL)
+		}(feed.URL)
+	}
+
+	wg.Wait()
+
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]interface{}{
+		"status":      "success",
+		"message":     "Feeds precargados en cache",
+		"feeds_count": len(feeds),
+	}
+
+	json.NewEncoder(w).Encode(response)
+	log.Printf("✅ Feeds precargados exitosamente (%d feeds)", len(feeds))
+}
+
+func loginPageHandler(w http.ResponseWriter, r *http.Request) {
+	// Verificar si ya tiene sesión válida
+	cookie, err := r.Cookie("session_id")
+	if err == nil {
+		if _, valid := validateSession(cookie.Value); valid {
+			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			return
+		}
+	}
+
+	// Renderizar página de login (usar la misma lógica que home pero solo login)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Solo mostrar la pantalla de login
+	html := `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANCAP WEB - LOGIN</title>
+    <style>
+        @font-face {
+            font-family: 'JetBrains Mono';
+            src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2'),
+                 url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        body { 
+            background: #000; 
+            color: #00ff00; 
+            font-family: 'JetBrains Mono', 'Courier New', monospace; 
+            margin: 0; 
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: 
+                radial-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            padding-top: 2vh;
+        }
+        
+        .login-container {
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .login-brand {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #00ff00;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            line-height: 1.0;
+            text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00; }
+            to { text-shadow: 0 0 30px #00ff00, 0 0 60px #00ff00; }
+        }
+        
+        .login-subtitle {
+            font-size: 14px;
+            color: #00aa00;
+            margin-top: 5px;
+            margin-bottom: 35px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .login-content {
+            background: transparent;
+            padding: 0;
+            width: 100%;
+        }
+        
+        .login-form {
+            margin-top: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .login-input {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px dashed #00ff00;
+            border-radius: 12px;
+            color: #00ff00;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            padding: 12px 18px;
+            margin: 8px 0;
+            width: 100%;
+            max-width: 320px;
+            box-sizing: border-box;
+            text-align: center;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            box-shadow: 
+                0 0 20px rgba(0, 255, 0, 0.2),
+                inset 0 0 20px rgba(0, 255, 0, 0.05);
+        }
+        
+        .login-input::placeholder {
+            color: #006600;
+            opacity: 0.8;
+        }
+        
+        .login-input:focus {
+            outline: none;
+            border-color: #00ff00;
+            box-shadow: 
+                0 0 25px rgba(0, 255, 0, 0.6),
+                inset 0 0 15px rgba(0, 255, 0, 0.1);
+            transform: scale(1.03);
+        }
+        
+        .login-button {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 12px;
+            color: #00ff00;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 12px 25px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+            max-width: 320px;
+            transition: all 0.3s ease;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            backdrop-filter: blur(5px);
+        }
+        
+        .login-button:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.7);
+            transform: translateY(-2px);
+        }
+        
+        .login-button:active {
+            transform: translateY(0);
+        }
+        
+        .login-error {
+            color: #ff3333;
+            margin-top: 20px;
+            font-size: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px dashed #ff3333;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        
+        .login-info {
+            color: #666;
+            font-size: 11px;
+            margin-top: 30px;
+            line-height: 1.6;
+            border-top: 1px dashed #333;
+            padding-top: 20px;
+        }
+    </style>
+    <script>
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('login-error');
+            
+            if (!username || !password) {
+                errorDiv.textContent = 'Por favor ingresa usuario y contraseña';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            errorDiv.style.display = 'none';
+            
+            const button = document.getElementById('login-button');
+            button.textContent = 'ACCEDIENDO...';
+            button.disabled = true;
+            
+            fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Credenciales inválidas');
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    // Si los feeds están precargados, la página cargará más rápido
+                    if (feedsPreloaded) {
+                        console.log('🚀 Login exitoso con feeds precargados - carga rápida');
+                    } else {
+                        console.log('✅ Login exitoso - cargando feeds...');
+                    }
+                    window.location.href = '/';
+                } else {
+                    throw new Error(data.message || 'Error de autenticación');
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+                button.textContent = 'ACCEDER';
+                button.disabled = false;
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+            });
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                handleLogin(event);
+            }
+        }
+        
+        // Variable para controlar la precarga
+        let preloadTimer = null;
+        let feedsPreloaded = false;
+        
+        function preloadFeeds(username) {
+            if (feedsPreloaded) return;
+            
+            console.log('🔄 Precargando feeds para usuario:', username);
+            
+            // Hacer precarga de feeds usando el endpoint específico
+            fetch('/api/preload-feeds', {
+                method: 'GET',
+                credentials: 'same-origin'
+            }).then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Error en precarga');
+            }).then(data => {
+                console.log('✅ Feeds precargados:', data);
+                feedsPreloaded = true;
+                
+                // Mostrar indicador visual sutil
+                const usernameInput = document.getElementById('username');
+                usernameInput.style.borderColor = '#00aa00';
+                usernameInput.style.boxShadow = '0 0 15px rgba(0, 255, 0, 0.3)';
+                
+                setTimeout(() => {
+                    usernameInput.style.borderColor = '#00ff00';
+                    usernameInput.style.boxShadow = '0 0 20px rgba(0, 255, 0, 0.2), inset 0 0 20px rgba(0, 255, 0, 0.05)';
+                }, 2000);
+            }).catch(error => {
+                console.log('❌ Error precargando feeds:', error);
+            });
+        }
+        
+        function handleUsernameInput(event) {
+            const username = event.target.value.trim();
+            
+            // Cancelar timer anterior si existe
+            if (preloadTimer) {
+                clearTimeout(preloadTimer);
+            }
+            
+            // Si el usuario escribió algo, esperar 800ms y precargar
+            if (username.length >= 3) {
+                preloadTimer = setTimeout(() => {
+                    preloadFeeds(username);
+                }, 800);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const usernameInput = document.getElementById('username');
+            usernameInput.focus();
+            
+            // Agregar evento de input para detectar cuando se escribe el usuario
+            usernameInput.addEventListener('input', handleUsernameInput);
+        });
+    </script>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-brand">
+▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
+█▀█ █ ▀█ █▄▄ █▀█ █▀▀
+        </div>
+        <div class="login-subtitle">» A LIBERTARIAN RSS READER «</div>
+        
+        <div class="login-content">
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <input 
+                    type="text" 
+                    id="username" 
+                    class="login-input" 
+                    placeholder="USUARIO" 
+                    onkeypress="handleKeyPress(event)"
+                    autocomplete="username">
+                <input 
+                    type="password" 
+                    id="password" 
+                    class="login-input" 
+                    placeholder="CONTRASEÑA" 
+                    onkeypress="handleKeyPress(event)"
+                    autocomplete="current-password">
+                <button type="submit" id="login-button" class="login-button">
+                    ACCEDER
+                </button>
+                <div id="login-error" class="login-error" style="display: none;"></div>
+                <div class="login-info">
+                    Credenciales por defecto:<br>
+                    <strong>admin</strong> / admin123<br>
+                    <strong>ancap</strong> / libertad
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>`
+
+	w.Write([]byte(html))
+}
+
+func loginAPIHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var loginReq struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&loginReq); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if validateLogin(loginReq.Username, loginReq.Password) {
+		sessionID := createSession(loginReq.Username)
+
+		// Crear cookie de sesión
+		cookie := &http.Cookie{
+			Name:     "session_id",
+			Value:    sessionID,
+			Expires:  time.Now().Add(SESSION_DURATION),
+			HttpOnly: true,
+			Path:     "/",
+		}
+		http.SetCookie(w, cookie)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": "Login exitoso",
+		})
+
+		log.Printf("✅ Login exitoso para usuario: %s", loginReq.Username)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": "Credenciales inválidas",
+		})
+
+		log.Printf("❌ Login fallido para usuario: %s", loginReq.Username)
+	}
+}
+
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session_id")
+	if err == nil {
+		sessionMutex.Lock()
+		delete(sessions, cookie.Value)
+		sessionMutex.Unlock()
+	}
+
+	// Eliminar cookie
+	deleteCookie := &http.Cookie{
+		Name:     "session_id",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		HttpOnly: true,
+		Path:     "/",
+	}
+	http.SetCookie(w, deleteCookie)
+
+	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+}
+
 func main() {
+	// Limpiar sesiones expiradas cada hora
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			clearExpiredSessions()
+		}
+	}()
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", homeHandler)
-	mux.HandleFunc("/add", addHandler)
-	mux.HandleFunc("/favorite", favoriteHandler)
-	mux.HandleFunc("/api/favorites", apiFavoritesHandler)
-	mux.HandleFunc("/api/scrape-article", scrapeArticleHandler)
-	mux.HandleFunc("/clear-cache", clearCacheHandler)
+
+	// Rutas públicas (sin autenticación)
+	mux.HandleFunc("/login", loginPageHandler)
+	mux.HandleFunc("/api/login", loginAPIHandler)
+	mux.HandleFunc("/api/preload-feeds", preloadFeedsHandler)
 	mux.HandleFunc("/static/", staticHandler)
 
-	log.Println("🚀 Starting ANCAP WEB Server...")
+	// Rutas protegidas (con autenticación)
+	mux.Handle("/", authMiddleware(http.HandlerFunc(homeHandler)))
+	mux.Handle("/add", authMiddleware(http.HandlerFunc(addHandler)))
+	mux.Handle("/favorite", authMiddleware(http.HandlerFunc(favoriteHandler)))
+	mux.Handle("/api/favorites", authMiddleware(http.HandlerFunc(apiFavoritesHandler)))
+	mux.Handle("/api/scrape-article", authMiddleware(http.HandlerFunc(scrapeArticleHandler)))
+	mux.Handle("/clear-cache", authMiddleware(http.HandlerFunc(clearCacheHandler)))
+	mux.Handle("/logout", authMiddleware(http.HandlerFunc(logoutHandler)))
+
+	log.Println("🚀 Starting ANCAP WEB Server with Authentication...")
 	log.Println("🌐 Server running at http://localhost:8083")
+	log.Println("🔐 Default users: admin/admin123, ancap/libertad")
 
 	if err := http.ListenAndServe(":8083", gzipMiddleware(mux)); err != nil {
 		log.Fatalf("❌ Server failed to start: %v", err)
