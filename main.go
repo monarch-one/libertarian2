@@ -17,7 +17,20 @@
 //
 // CREDENCIALES POR DEFECTO:
 // - admin / admin123
-// - ancap / libertad
+// - ancap / ghanima
+
+// ==========================================================================================================
+// 🚨🚨🚨 REGLA INQUEBRANTABLE DE FRONTEND - ESTABLECIDA 11/08/2025 🚨🚨🚨
+// ==========================================================================================================
+// ✅ TODO HTML/CSS/JAVASCRIPT VA HARDCODEADO EN MAIN.GO
+// ❌ NUNCA CREAR TEMPLATES SEPARADOS
+// ❌ NUNCA MIGRAR A ARCHIVOS EXTERNOS
+// ❌ NUNCA REFACTORIZAR A TEMPLATES
+// 🎯 RAZÓN: EVITAR ROMPER PROYECTO FUNCIONANDO
+// 📅 USUARIO DECIDIÓ: HARDCODE FOREVER
+// ==========================================================================================================
+// SI ESTÁS LEYENDO ESTO Y QUIERES CAMBIAR FRONTEND: PARA Y PREGUNTA AL USUARIO PRIMERO
+// ==========================================================================================================
 
 package main
 
@@ -34,6 +47,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -75,6 +89,7 @@ type Session struct {
 type TemplateData struct {
 	Articles      []Article
 	ImportMessage string
+	Timestamp     int64
 }
 
 type OPML struct {
@@ -451,6 +466,9 @@ func getCachedOrFetch(feedURL string) []Article {
 	return articles
 }
 
+// ==========================================================================================================
+// 🚨 FRONTEND HARDCODEADO AQUÍ - NO MIGRAR A TEMPLATES 🚨
+// ==========================================================================================================
 func renderHomePage(w http.ResponseWriter, data TemplateData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -462,13 +480,20 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANCAP - ` + time.Now().Format("15:04:05") + ` [v2.2]</title>
+    <title>LIBERTARIAN 2.0 - ` + time.Now().Format("15:04:05") + ` [AIR]</title>
     <style>
         @font-face {
             font-family: 'JetBrains Mono';
             src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2'),
                  url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf') format('truetype');
             font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'JetBrains Mono';
+            src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf') format('truetype');
+            font-weight: 700;
             font-style: normal;
             font-display: swap;
         }
@@ -482,7 +507,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         body { 
             background: #000; 
             color: #00ff00; 
-            font-family: 'JetBrains Mono', 'Courier New', monospace; 
+            font-family: 'JetBrains Mono', monospace; 
             font-size: 14px; 
             font-weight: 300;
             margin: 0; 
@@ -491,91 +516,35 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             display: flex;
             justify-content: center;
         }
-        
         .container { 
             max-width: 720px; 
             margin: 0; 
             text-align: left;
             width: 100%;
-            padding-top: 130px;
-            overflow: hidden;
-            position: relative;
         }
-        .main-header {
+        .header-fixed {
             position: fixed;
             top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            max-width: 720px;
+            left: 0;
+            right: 0;
             background: #000;
             z-index: 1000;
-            margin-bottom: 20px;
-            padding: 10px 20px;
+            padding: 20px 0;
             border-bottom: 1px solid #333;
-            box-sizing: border-box;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         }
-        .datetime-display {
-            position: absolute;
-            top: 25px;
-            right: 10px;
-            font-size: 11px;
-            color: #00ff00;
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 400;
-            text-align: right;
-            line-height: 1.2;
-            text-shadow: 0 0 5px #00ff00;
+        .header-content {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
-        .ascii-logo {
-            font-size: 12px;
-            color: #00ff00;
-            font-family: 'Courier New', monospace;
-            white-space: pre;
-            line-height: 1.0;
-            text-align: center;
-        }
-        .subtitle {
-            font-size: 10px;
-            color: #ffff00;
-            text-align: center;
-            margin-top: 5px;
+        .content-wrapper {
+            margin-top: 120px; /* Espacio para el header fijo - reducido */
         }
         .tabs {
             display: flex;
             width: 100%;
-            max-width: 720px;
-            margin-bottom: 20px;
-            position: fixed;
-            top: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #000;
-            z-index: 1100;
-            padding: 0 20px;
-            box-sizing: border-box;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-        }
-        .tabs::before {
-            content: '';
-            position: absolute;
-            top: -20px;
-            left: 0;
-            right: 0;
-            height: 20px;
-            background: #000;
-            z-index: 1101;
-        }
-        .tabs::after {
-            content: '';
-            position: absolute;
-            bottom: -20px;
-            left: 0;
-            right: 0;
-            height: 20px;
-            background: #000;
-            z-index: 1101;
+            margin-bottom: 0; /* Sin separación */
+            border-bottom: none; /* Sin línea de separación */
         }
         .tab {
             flex: 1;
@@ -583,45 +552,56 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             padding: 10px;
             color: #00ff00;
             text-decoration: none;
-            border: 1px dashed #00ff00;
-            border-radius: 8px 8px 0 0;
+            border: 1px solid #333;
             background: #000;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             cursor: pointer;
-            margin: 2px 2px 0 2px;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
             position: relative;
         }
         .tab:hover {
-            background: #000;
-            transform: scale(1.02);
+            background: #111;
         }
         .tab.tab-active {
             background: #000;
             color: #00ff00;
             font-weight: bold;
-            border-color: #00ff00;
             border-bottom: 1px solid #000;
-            z-index: 1001;
         }
-        .tab.tab-active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
+        .tab-shortcut {
+            font-size: 10px;
+            color: #888;
+            margin-left: 5px;
+        }
+        .tab-content {
+            display: none;
+            width: 100%;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab {
+            border: 1px solid #333;
             background: #000;
-            z-index: 1002;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .tab:hover {
+            background: #111;
+        }
+        .tab.tab-active {
+            background: #000;
+            color: #00ff00;
+            font-weight: bold;
+            border-bottom: 1px solid #000;
         }
         h1 { 
             color: #00ff00; 
             margin-bottom: 20px; 
             font-size: 14px;
             text-align: left;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-weight: 300;
             line-height: 1.2;
         }
@@ -630,7 +610,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             color: #00ff00; 
             font-size: 14px;
             text-align: left;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-weight: 300;
             line-height: 1.2;
         }
@@ -649,10 +629,14 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .article-line:hover {
             background: #111;
         }
+        .article-line.selected {
+            background: #222;
+            border-left: 3px solid #00ff00;
+        }
         .full-line-link {
             color: #00ff00;
             text-decoration: none;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-weight: 300;
             font-size: 14px;
             line-height: 1.2;
@@ -674,41 +658,69 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             text-decoration: none;
             color: #ffff88;
         }
-        .meta { 
+        .date-bracket { 
             color: #00ff00; 
-            font-size: 14px;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-weight: 300;
-            flex-shrink: 0;
-            white-space: nowrap;
-            margin-right: 0px;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+        .source-name { 
+            color: #ffff00; 
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 300;
+            font-size: 14px;
             line-height: 1.2;
         }
         .title { 
             color: #00ff00; 
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-weight: 300;
-            flex-shrink: 1;
+            font-size: 14px;
+            line-height: 1.2;
+            margin-left: 2px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 14px;
-            line-height: 1.2;
-            margin-left: 5px;
+            flex: 1;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .title:hover {
+            color: #ffff00;
+            text-decoration: underline;
+        }
         }
         .article-content {
             display: none;
-            background: #000;
+            background: #111;
             color: #00ff00;
             padding: 15px;
             margin: 5px 0;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             line-height: 1.4;
+            border-left: 3px solid #00ff00;
             white-space: normal;
             word-wrap: break-word;
-            overflow: hidden;
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
             position: relative;
+        }
+        .article-content img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+        .article-content iframe,
+        .article-content video,
+        .article-content embed,
+        .article-content object {
+            max-width: 100%;
+            height: auto;
         }
         .article-content.expanded {
             display: block;
@@ -721,18 +733,20 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         .article-line.selected {
             background: #222;
+            border-left: 3px solid #00ff00;
         }
         .article-line.read {
-            color: #666 !important;
+            opacity: 0.6;
+            color: #666;
         }
-        .article-line.read .meta {
-            color: #666 !important;
+        .article-line.read .date-bracket {
+            color: #666;
+        }
+        .article-line.read .source-name {
+            color: #999;
         }
         .article-line.read .title {
-            color: #666 !important;
-        }
-        .article-line.read .meta span {
-            color: #666 !important;
+            color: #666;
         }
         
         /* Modal/Window styles */
@@ -757,7 +771,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             width: 80%;
             max-width: 800px;
             color: #00ff00;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             position: relative;
             max-height: 80vh;
@@ -786,6 +800,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .config-section {
             margin: 15px 0;
             padding: 10px;
+            border: 1px solid #333;
         }
         .config-label {
             display: block;
@@ -813,7 +828,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .page-content {
             width: 100%;
             color: #00ff00;
-            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             padding: 20px 0;
         }
@@ -825,2238 +840,436 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             padding-bottom: 10px;
             color: #00ff00;
         }
-        
-        /* Feed management styles */
-        .feeds-list {
-            margin: 10px 0;
-        }
-        
-        /* Import section styles */
-        .import-section {
-            margin: 15px 0;
-            padding: 15px;
-            border: 1px dashed #00ff00;
-            border-radius: 8px;
-        }
-        .upload-area {
-            margin-bottom: 10px;
-            text-align: center;
-        }
-        .upload-button {
-            background: #000;
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            border-radius: 5px;
-            padding: 8px 15px;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-        }
-        .upload-button:hover {
-            background: #00ff00;
-            color: #000;
-        }
-        .import-button {
-            background: #000;
-            color: #00ff00;
-            border: 2px solid #00ff00;
-            border-radius: 5px;
-            padding: 8px 15px;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            width: 100%;
-        }
-        .import-button:hover {
-            background: #00ff00;
-            color: #000;
-        }
-        .manual-add {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 1px solid #333;
-        }
-        .manual-add h4 {
-            margin: 0 0 10px 0;
-            color: #00ff00;
-            font-size: 13px;
-        }
-        .manual-add input[type="url"] {
-            background: #000;
-            color: #00ff00;
-            border: 1px solid #00ff00;
-            border-radius: 3px;
-            padding: 6px 10px;
-            width: 70%;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-        }
-        .manual-add button {
-            background: #000;
-            color: #00ff00;
-            border: 1px solid #00ff00;
-            border-radius: 3px;
-            padding: 6px 10px;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            margin-left: 5px;
-        }
-        .manual-add button:hover {
-            background: #00ff00;
-            color: #000;
-        }
-        .file-name {
-            display: block;
-            color: #888;
-            font-size: 11px;
-            margin-top: 5px;
-        }
-        .feeds-management {
-            margin: 15px 0;
-        }
-        .feeds-stats {
-            margin-bottom: 10px;
-            color: #888;
-            font-size: 12px;
-        }
-        .feeds-stats span {
-            margin-right: 15px;
-        }
-        .management-actions button {
-            background: #000;
-            color: #00ff00;
-            border: 1px solid #00ff00;
-            border-radius: 3px;
-            padding: 6px 12px;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            margin-right: 10px;
-        }
-        .management-actions button:hover {
-            background: #00ff00;
-            color: #000;
-        }
-        
-        .feed-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 10px;
-            margin: 2px 0;
-            background: #000;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            border-left: 3px solid transparent;
-        }
-        .feed-item.selected {
-            background: #001100;
-            border-left: 3px solid #00ff00;
-        }
-        .feed-item.broken {
-            color: #ff4444;
-            background: #110000;
-        }
-        .feed-item.checking {
-            color: #ffaa00;
-            background: #111100;
-        }
-        .feed-item.working {
-            color: #00ff00;
-        }
-        .feed-status {
-            width: 60px;
-            margin-right: 10px;
-            font-size: 11px;
-            color: #888;
-        }
-        .feed-title {
-            flex: 1;
-            margin-right: 10px;
-        }
-        .feed-url {
-            color: #888;
-            font-size: 11px;
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .feeds-section-header {
-            color: #00ff00;
-            font-weight: bold;
-            margin: 15px 0 5px 0;
-            font-size: 14px;
-        }
     </style>
-    
-    <!-- JAVASCRIPT PROBLEMÁTICO COMENTADO TEMPORALMENTE 
     <script>
-    /*
-            console.log('toggleArticle called:', index, event);
-            if (event) {
-                // Si es doble clic o Ctrl+clic, abrir enlace
-                if (event.detail === 2 || event.ctrlKey) {
-                    window.open(articles[index].link, '_blank');
-                    return;
-                }
-                event.preventDefault();
-                event.stopPropagation();
-            }
+        let selectedIndex = 0;
+        let articles = [];
+        let readArticles = new Set();
+        
+        function moveToTop(index) {
+            const containers = document.querySelectorAll('.article-container');
+            const container = containers[index];
+            if (!container) return;
             
-            const content = document.getElementById('content-' + index);
-            const isCurrentlyExpanded = content.classList.contains('expanded');
+            const feedsContent = document.getElementById('feeds-tab');
+            const info = feedsContent.querySelector('.info');
             
-            // Cerrar todos los artículos
-            document.querySelectorAll('.article-content').forEach(el => {
-                el.classList.remove('expanded');
+            // Move article to top (after info)
+            feedsContent.insertBefore(container, info.nextSibling);
+            
+            // Update selectedIndex to 0 since moved article is now first
+            selectedIndex = 0;
+            scrollToShowSelected();
+        }
+        
+        function toggleArticle(index, event) {
+            if (event) event.preventDefault();
+            
+            const containers = document.querySelectorAll('.article-container');
+            const container = containers[index];
+            if (!container) return;
+            
+            const content = container.querySelector('.article-content');
+            const line = container.querySelector('.article-line');
+            
+            // Close all other articles
+            document.querySelectorAll('.article-content').forEach((c) => {
+                c.classList.remove('expanded');
+                c.style.display = 'none';
+            });
+            document.querySelectorAll('.article-line').forEach((l) => {
+                l.classList.remove('selected');
             });
             
-            if (!isCurrentlyExpanded) {
-                // Abrir el artículo
+            // Toggle current article
+            if (content.classList.contains('expanded')) {
+                // Closing article - mark as read
+                content.classList.remove('expanded');
+                content.style.display = 'none';
+                line.classList.add('read');
+                readArticles.add(line.dataset.url);
+                selectedIndex = 0; // Stay at top position
+                scrollToShowSelected();
+            } else {
+                // Opening article - move to top and expand
+                if (index !== 0) {
+                    moveToTop(index);
+                }
                 content.classList.add('expanded');
-                selectedIndex = index;
-                currentArticleIndex = index;
-                
-                // Marcar artículo como leído y agregarlo al stack
-                const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
-                if (articleLine) {
-                    articleLine.classList.add('read');
-                    articles[index].isRead = true;
-                    
-                    // Si el artículo ya está en el stack, actualizar posición
-                    const existingPos = readStack.indexOf(index);
-                    if (existingPos !== -1) {
-                        currentStackPosition = existingPos;
-                    } else {
-                        // Si es nuevo, agregarlo al stack
-                        addToReadStack(index);
-                    }
-                }
-                
-                // Cargar contenido completo
-                loadArticleContent(index);
-                
-                // Scroll al artículo con offset para evitar el header
-                const articleElement = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
-                if (articleElement) {
-                    const rect = articleElement.getBoundingClientRect();
-                    const offset = 160; // Offset aumentado para no cortar tipografías
-                    window.scrollTo({
-                        top: window.scrollY + rect.top - offset,
-                        behavior: 'smooth'
-                    });
-                }
-            } else {
-                // Solo cerrar sin mover
-                selectedIndex = index;
+                content.style.display = 'block';
+                line.classList.add('selected');
+                selectedIndex = 0;
             }
         }
-        
 
-        
-        let readStack = []; // Stack de artículos leídos en orden de lectura
-        let currentStackPosition = 0; // Posición actual en el stack
-        
-        function addToReadStack(index) {
-            // Remover del stack si ya existe
-            readStack = readStack.filter(i => i !== index);
-            // Agregar al principio del stack
-            readStack.unshift(index);
-            // Resetear posición al principio
-            currentStackPosition = 0;
-        }
-        
-        function markAsRead(index) {
-            if (currentPage === 'feeds') {
-                const articleLine = document.querySelector('.article-line[onclick*="toggleArticle(' + index + ',"]');
-                if (articleLine) {
-                    articleLine.classList.add('read');
-                    articles[index].isRead = true;
-                }
-            } else {
-                // Para SAVED/LOVED, marcar el contenedor correspondiente
-                const containers = document.querySelectorAll('.article-container');
-                if (containers[index]) {
-                    containers[index].classList.add('read');
-                    // Buscar el artículo original en la lista para marcarlo
-                    const link = containers[index].querySelector('.full-line-link')?.getAttribute('data-link');
-                    if (link) {
-                        const originalIndex = articles.findIndex(a => a.link === link);
-                        if (originalIndex >= 0) {
-                            articles[originalIndex].isRead = true;
-                        }
-                    }
-                }
-            }
-        }
-        
-        function getNextUnreadArticle() {
-            for (let i = 0; i < articles.length; i++) {
-                if (!articles[i].isRead) {
-                    return i;
-                }
-            }
-            return -1;
-        }
-        
-        function getPreviousReadArticle() {
-            // Moverse hacia adelante en el stack (hacia artículos más antiguos)
-            if (currentStackPosition < readStack.length - 1) {
-                currentStackPosition++;
-                return readStack[currentStackPosition];
-            }
-            return -1;
-        }
-        
-        function moveToNextInStack() {
-            // Para navegación J - moverse hacia atrás en el stack (artículos más nuevos)
-            if (currentStackPosition > 0) {
-                currentStackPosition--;
-                return readStack[currentStackPosition];
-            }
-            return -1;
-        }
-        
-
-        
-        // Función mejorada para cargar contenido completo del artículo
-        function loadArticleContent(index) {
-            const article = articles[index];
-            const content = document.getElementById('content-' + index);
-            
-            content.innerHTML = 'Loading full content...';
-            
-            // Intentar obtener el contenido completo del artículo
-            fetchFullArticleContent(article.link)
-                .then(fullContent => {
-                    displayArticleContent(content, article, fullContent, index);
-                })
-                .catch(() => {
-                    // Fallback al contenido de descripción
-                    displayArticleContent(content, article, null, index);
-                });
-        }
-        
-        // Función para obtener contenido completo del artículo
-        async function fetchFullArticleContent(url) {
-            try {
-                // Intentar hacer scraping del contenido completo
-                const response = await fetch('/api/scrape-article', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url: url })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    return data.content;
-                } else {
-                    throw new Error('No se pudo obtener el contenido completo');
-                }
-            } catch (error) {
-                console.log('Fallback a descripción RSS:', error);
-                throw error;
-            }
-        }
-        
-        // Función para mostrar el contenido del artículo
-        function displayArticleContent(content, article, fullContent, index) {
-            // Usar contenido completo si está disponible, sino usar descripción
-            let articleText = fullContent || article.description || 'Content not available.';
-            
-            // Función para formatear texto mejorado
-            function formatText(text) {
-                // Primero preservar elementos de bloque convirtiéndolos a marcadores temporales
-                text = text.replace(/<\/p>/gi, '|||PARAGRAPH|||');
-                text = text.replace(/<br\s*\/?>/gi, '|||BREAK|||');
-                text = text.replace(/<\/div>/gi, '|||PARAGRAPH|||');
-                text = text.replace(/<\/h[1-6]>/gi, '|||PARAGRAPH|||');
-                
-                // Limpiar etiquetas HTML
-                text = text.replace(/<[^>]*>/g, '');
-                
-                // Decodificar entidades HTML comunes
-                text = text.replace(/&nbsp;/g, ' ');
-                text = text.replace(/&amp;/g, '&');
-                text = text.replace(/&lt;/g, '<');
-                text = text.replace(/&gt;/g, '>');
-                text = text.replace(/&quot;/g, '"');
-                text = text.replace(/&#39;/g, "'");
-                text = text.replace(/&apos;/g, "'");
-                text = text.replace(/&[^;]+;/g, ' ');
-                
-                // Restaurar marcadores como saltos de párrafo
-                text = text.replace(/\|\|\|PARAGRAPH\|\|\|/g, '\n\n');
-                text = text.replace(/\|\|\|BREAK\|\|\|/g, '\n');
-                
-                // Detectar y crear párrafos automáticamente
-                // Buscar oraciones que terminan con punto seguido de mayúscula
-                text = text.replace(/\.\s+([A-ZÁÉÍÓÚÑÜ])/g, '.\n\n$1');
-                
-                // Limpiar espacios múltiples
-                text = text.replace(/\s+/g, ' ');
-                
-                // Limpiar saltos de línea excesivos pero mantener párrafos
-                text = text.replace(/\n\s*\n\s*\n+/g, '\n\n');
-                text = text.trim();
-                
-                return text;
-            }
-            
-            // Aplicar formateo mejorado
-            articleText = formatText(articleText);
-            
-            // Convertir a HTML manteniendo la estructura de párrafos
-            if (articleText.includes('\n\n')) {
-                // Si hay párrafos dobles, tratarlos como párrafos separados
-                const paragraphs = articleText.split('\n\n').filter(p => p.trim());
-                articleText = paragraphs.map(p => '<p style="margin-bottom: 15px; line-height: 1.6; text-align: left;">' + p.replace(/\n/g, '<br>') + '</p>').join('');
-            } else {
-                // Si no hay párrafos dobles, solo reemplazar saltos de línea simples
-                articleText = '<p style="margin-bottom: 15px; line-height: 1.6; text-align: left;">' + articleText.replace(/\n/g, '<br>') + '</p>';
-            }
-            
-            // Determinar posición de botones según configuración
-            const buttonsPosition = localStorage.getItem('buttonsPosition') || 'right';
-            
-            const buttonStyle = buttonsPosition === 'right' ? 
-                'position: absolute; right: 15px; top: 15px; text-align: right;' :
-                'position: absolute; left: 15px; top: 15px; text-align: left;';
-            
-            const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                '<div id="saved-btn-' + index + '" onclick="toggleSaved(' + index + ', event)" style="color: ' + (article.isSaved ? '#FFD700' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isSaved ? '[SAVED]' : '[SAVE S]') + '</div>' +
-                '<div id="loved-btn-' + index + '" onclick="toggleLoved(' + index + ')" style="color: ' + (article.isLoved ? '#FF69B4' : '#00ff00') + '; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">' + (article.isLoved ? '[LOVED]' : '[LOVE L]') + '</div>' +
-                '<div onclick="shareArticle(' + index + ')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[SHARE C]</div>' +
-                '<div onclick="window.open(\'' + article.link + '\', \'_blank\')" style="color: #ffff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[ORIGINAL O]</div>' +
-                '</div>';
-            
-            // Extraer y procesar imágenes del contenido original
-            let imageHTML = '';
-            const originalDescription = article.description || '';
-            
-            if (originalDescription && originalDescription.trim().length > 0) {
-                const imgRegex = /<img[^>]+src=["\']([^"\']+)["\'][^>]*>/gi;
-                let match;
-                
-                const images = [];
-                while ((match = imgRegex.exec(originalDescription)) !== null && images.length < 3) {
-                    const imgSrc = match[1];
-                    if (imgSrc && (imgSrc.startsWith('http://') || imgSrc.startsWith('https://') || imgSrc.startsWith('//'))) {
-                        images.push(imgSrc);
-                    }
-                }
-                
-                if (images.length > 0) {
-                    imageHTML = '<div style="margin-bottom: 15px; text-align: left;">';
-                    images.forEach(imgSrc => {
-                        imageHTML += '<img src="' + imgSrc + '" style="max-width: 280px; max-height: 200px; margin: 5px 10px 5px 0; border: 1px solid #333; object-fit: cover; display: none;" onerror="this.style.display=\'none\'" onload="this.style.display=\'inline-block\'">';
-                    });
-                    imageHTML += '</div>';
-                }
-            }
-            
-            const contentPadding = buttonsPosition === 'right' ? 
-                'padding-right: 120px;' : 
-                'padding-left: 120px;';
-            
-            content.innerHTML = buttonsHTML +
-                              '<div style="' + contentPadding + '">' +
-                              '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + article.date + ' | ' + article.source + '</div>' +
-                              '<div style="margin-bottom: 15px;"><a href="' + article.link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + article.title + '</a></div>' +
-                              (imageHTML || '') +
-                              '<div style="line-height: 1.6; color: #ccc; text-align: justify;">' + articleText + '</div>' +
-                              (fullContent ? '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">FULL CONTENT LOADED</div>' : '<div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #888; font-size: 11px;">RSS feed content. Double click on the line to view the complete article on the original site</div>') +
-                              '</div>';
-        }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('=== DOM Content Loaded - Initializing ===');
-            
-            // Agregar event listener para navegación por teclado
-            document.addEventListener('keydown', function(event) {
-                console.log('Key pressed:', event.code, event.key);
-                console.log('Current page:', currentPage);
-                console.log('Selected index:', selectedIndex);
-            // Usar la variable global currentPage en lugar de buscar en el DOM
-            let totalArticles;
-            let articleContainers;
-            if (currentPage === 'feeds') {
-                articleContainers = document.querySelectorAll('#feeds-content .article-container');
-                totalArticles = articleContainers.length;
-            } else if (currentPage === 'saved') {
-                articleContainers = document.querySelectorAll('#saved-articles-list .article-container');
-                totalArticles = articleContainers.length;
-            } else if (currentPage === 'loved') {
-                articleContainers = document.querySelectorAll('#loved-articles-list .article-container');
-                totalArticles = articleContainers.length;
-            } else {
-                totalArticles = 0;
-                articleContainers = [];
-            }
-            
-            const expandedArticle = document.querySelector('.article-content.expanded');
-            
-            // Evitar atajos si hay un input activo
-            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        document.addEventListener('keydown', function(e) {
+            // Ignore if user is typing in an input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
+
+            const totalArticles = document.querySelectorAll('.article-container').length;
             
-            switch(event.code) {
-                case 'Space':
-                    event.preventDefault();
-                    
-                    // Space = abrir/cerrar el artículo seleccionado
-                    if (selectedIndex >= 0 && totalArticles > 0) {
-                        if (currentPage === 'feeds') {
-                            toggleArticle(selectedIndex);
-                        } else if (currentPage === 'saved' || currentPage === 'loved') {
-                            const container = articleContainers[selectedIndex];
-                            if (container) {
-                                const articleLine = container.querySelector('.article-line');
-                                if (articleLine) {
-                                    const onclickAttr = articleLine.getAttribute('onclick');
-                                    const match = onclickAttr.match(/toggleArticleContent\(this, '([^']+)'/);
-                                    if (match) {
-                                        const link = match[1];
-                                        const prefix = currentPage === 'saved' ? 'content-saved-' : 'content-loved-';
-                                        const contentId = prefix + btoa(link).replace(/=/g, '').substring(0, 10);
-                                        toggleArticleGeneric(container, contentId, link);
-                                    }
-                                }
-                            }
-                        }
-                    }
+            switch(e.key.toLowerCase()) {
+                case 'f1':
+                    e.preventDefault();
+                    switchTab('feeds');
                     break;
                     
-                case 'ArrowDown':
-                    event.preventDefault();
-                    // Flecha abajo = scroll hacia abajo
-                    if (expandedArticle) {
-                        const scrollAmount = window.innerHeight * 0.8;
-                        window.scrollBy({
-                            top: scrollAmount,
-                            behavior: 'smooth'
-                        });
-                    }
+                case 'f2':
+                    e.preventDefault();
+                    switchTab('favorites');
                     break;
                     
-                case 'KeyJ':
-                    event.preventDefault();
-                    if (currentPage === 'feeds') {
-                        // Para FEEDS: lógica original
-                        if (expandedArticle) {
-                            let nextIndex = moveToNextInStack();
-                            if (nextIndex === -1) {
-                                nextIndex = getNextUnreadArticle();
-                            }
-                            if (nextIndex !== -1) {
-                                toggleArticle(nextIndex, false);
-                            }
-                        } else {
-                            if (selectedIndex < totalArticles - 1) {
-                                selectedIndex++;
-                                currentArticleIndex = selectedIndex;
-                                highlightSelected();
-                            }
-                        }
-                    } else if (currentPage === 'saved' || currentPage === 'loved') {
-                        // Para SAVED/LOVED: nueva lógica unificada
-                        const articleLines = document.querySelectorAll('#' + currentPage + '-articles-list .article-line');
+                case 'f3':
+                    e.preventDefault();
+                    switchTab('saved');
+                    break;
+                    
+                case 'f4':
+                    e.preventDefault();
+                    switchTab('config');
+                    break;
+                    
+                case 'j':
+                case 'arrowdown':
+                    e.preventDefault();
+                    const totalArticles = document.querySelectorAll('.article-container').length;
+                    
+                    // J: Si hay un artículo expandido, cierra el actual y abre el siguiente
+                    const expandedContent = document.querySelector('.article-content.expanded');
+                    if (expandedContent) {
+                        // Cierra el artículo actual
+                        expandedContent.classList.remove('expanded');
+                        expandedContent.style.display = 'none';
+                        const currentLine = expandedContent.parentElement.querySelector('.article-line');
+                        currentLine.classList.add('read');
                         
-                        if (expandedArticle) {
-                            // Si hay un artículo abierto, cerrarlo y marcar como leído
-                            const currentLine = document.querySelector('.article-line.article-selected');
-                            if (currentLine) {
-                                const content = currentLine.parentElement.querySelector('.article-content');
-                                if (content) {
-                                    content.style.display = 'none';
-                                }
-                                currentLine.classList.remove('article-selected');
-                                
-                                // Obtener el link para remover de favoritos (marcar como leído)
-                                const onclickAttr = currentLine.getAttribute('onclick');
-                                if (onclickAttr) {
-                                    const match = onclickAttr.match(/toggleArticleContent\(this, '([^']+)'/);
-                                    if (match) {
-                                        console.log('Marking as read and removing:', match[1]);
-                                        if (currentPage === 'saved') {
-                                            removeFavoriteFromSaved(match[1]);
-                                        } else {
-                                            removeFavoriteFromLoved(match[1]);
-                                        }
-                                    }
-                                }
-                            }
-                            expandedArticle = null;
-                        } else {
-                            // Navegar al siguiente artículo sin expandir
-                            if (selectedIndex < articleLines.length - 1) {
-                                selectedIndex++;
-                                highlightSelected();
-                            }
+                        // Mueve al siguiente artículo
+                        if (selectedIndex < totalArticles - 1) {
+                            selectedIndex++;
                         }
-                    }
-                    break;
-                    
-                case 'ArrowUp':
-                    event.preventDefault();
-                    // Flecha arriba = scroll hacia arriba
-                    if (expandedArticle) {
-                        const scrollAmount = window.innerHeight * 0.8;
-                        window.scrollBy({
-                            top: -scrollAmount,
-                            behavior: 'smooth'
-                        });
-                    }
-                    break;
-                    
-                case 'KeyK':
-                    event.preventDefault();
-                    if (expandedArticle) {
-                        if (currentPage === 'feeds') {
-                            // Para FEEDS: usar el stack system
-                            const prevIndex = getPreviousReadArticle();
-                            if (prevIndex !== -1) {
-                                toggleArticle(prevIndex, false);
-                            } else {
-                                window.scrollBy({
-                                    top: -window.innerHeight * 0.5,
-                                    behavior: 'smooth'
-                                });
-                            }
-                        } else {
-                            // Para SAVED/LOVED: navegación simple al anterior
-                            if (selectedIndex > 0) {
-                                selectedIndex--;
-                                const containers = document.querySelectorAll('.article-container');
-                                if (containers[selectedIndex]) {
-                                    // Cerrar todos los artículos
-                                    document.querySelectorAll('.article-content').forEach(el => {
-                                        el.classList.remove('expanded');
-                                    });
-                                    // Abrir el seleccionado
-                                    const content = containers[selectedIndex].querySelector('.article-content');
-                                    if (content) {
-                                        content.classList.add('expanded');
-                                        markAsRead(selectedIndex); // Marcar como leído
-                                        containers[selectedIndex].scrollIntoView({
-                                            behavior: 'smooth',
-                                            block: 'start'
-                                        });
-                                    }
-                                }
-                                highlightSelected();
-                            }
+                        
+                        // Abre el nuevo artículo
+                        const containers = document.querySelectorAll('.article-container');
+                        const newContainer = containers[selectedIndex];
+                        if (newContainer) {
+                            const newContent = newContainer.querySelector('.article-content');
+                            const newLine = newContainer.querySelector('.article-line');
+                            
+                            newContent.classList.add('expanded');
+                            newContent.style.display = 'block';
+                            newLine.classList.add('read');
+                            readArticles.add(newLine.dataset.url);
                         }
+                        
+                        scrollToShowSelected();
                     } else {
-                        // Navegación normal
+                        // J simplemente mueve al siguiente artículo en la lista si no hay nada expandido
+                        if (selectedIndex < totalArticles - 1) {
+                            selectedIndex++;
+                            scrollToShowSelected();
+                        }
+                    }
+                    break;
+                
+                case 'k':
+                case 'arrowup':
+                    e.preventDefault();
+                    
+                    // K: Si hay un artículo expandido, cierra el actual y abre el anterior
+                    const expandedContentUp = document.querySelector('.article-content.expanded');
+                    if (expandedContentUp) {
+                        // Cierra el artículo actual
+                        expandedContentUp.classList.remove('expanded');
+                        expandedContentUp.style.display = 'none';
+                        const currentLineUp = expandedContentUp.parentElement.querySelector('.article-line');
+                        currentLineUp.classList.add('read');
+                        
+                        // Mueve al artículo anterior
                         if (selectedIndex > 0) {
                             selectedIndex--;
-                            currentArticleIndex = selectedIndex;
-                            highlightSelected();
-                        } else if (selectedIndex === -1 && totalArticles > 0) {
-                            selectedIndex = 0;
-                            currentArticleIndex = 0;
-                            highlightSelected();
                         }
-                    }
-                    break;
-                    break;
-                    
-                case 'Enter':
-                    event.preventDefault();
-                    if (selectedIndex >= 0 && totalArticles > 0) {
-                        // Obtener el enlace según la página
-                        let link;
-                        if (currentPage === 'feeds') {
-                            link = articles[selectedIndex].link;
-                        } else if (currentPage === 'saved' || currentPage === 'loved') {
-                            const container = articleContainers[selectedIndex];
-                            if (container) {
-                                link = container.querySelector('.full-line-link').getAttribute('data-link');
-                            }
-                        }
-                        if (link) {
-                            window.open(link, '_blank');
-                        }
-                    }
-                    break;
-                    
-                case 'KeyS':
-                    event.preventDefault();
-                    if (selectedIndex >= 0 && totalArticles > 0) {
-                        // Obtener el artículo actual según la página
-                        if (currentPage === 'feeds') {
-                            toggleSaved(selectedIndex);
-                        } else if (currentPage === 'saved' || currentPage === 'loved') {
-                            // Para saved/loved, obtenemos el artículo del DOM
-                            const container = articleContainers[selectedIndex];
-                            if (container) {
-                                const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                const originalIndex = articles.findIndex(a => a.link === link);
-                                if (originalIndex >= 0) {
-                                    toggleSaved(originalIndex);
-                                }
-                            }
-                        }
-                    }
-                    break;
-                    
-                case 'KeyL':
-                    event.preventDefault();
-                    if (selectedIndex >= 0 && totalArticles > 0) {
-                        // Obtener el artículo actual según la página
-                        if (currentPage === 'feeds') {
-                            toggleLoved(selectedIndex);
-                        } else if (currentPage === 'saved' || currentPage === 'loved') {
-                            // Para saved/loved, obtenemos el artículo del DOM
-                            const container = articleContainers[selectedIndex];
-                            if (container) {
-                                const link = container.querySelector('.full-line-link').getAttribute('data-link');
-                                const originalIndex = articles.findIndex(a => a.link === link);
-                                if (originalIndex >= 0) {
-                                    toggleLoved(originalIndex);
-                                }
-                            }
-                        }
-                    }
-                    break;
-                    
-                case 'KeyC':
-                    event.preventDefault();
-                    if (selectedIndex >= 0) {
-                        shareArticle(selectedIndex);
-                    }
-                    break;
-                    
-                case 'KeyO':
-                    event.preventDefault();
-                    if (selectedIndex >= 0 && totalArticles > 0) {
-                        // Obtener el enlace según la página y abrirlo
-                        let link;
-                        if (currentPage === 'feeds') {
-                            link = articles[selectedIndex].link;
-                        } else if (currentPage === 'saved' || currentPage === 'loved') {
-                            const container = articleContainers[selectedIndex];
-                            if (container) {
-                                link = container.querySelector('.full-line-link').getAttribute('data-link');
-                            }
-                        }
-                        if (link) {
-                            window.open(link, '_blank');
-                        }
-                    }
-                    break;
-                    
-                case 'Home':
-                    event.preventDefault();
-                    selectedIndex = 0;
-                    highlightSelected();
-                    break;
-                    
-                case 'End':
-                    event.preventDefault();
-                    selectedIndex = totalArticles - 1;
-                    highlightSelected();
-                    break;
-                    
-                case 'Escape':
-                    event.preventDefault();
-                    // Cerrar todos los artículos expandidos pero mantener la posición
-                    document.querySelectorAll('.article-content').forEach(el => {
-                        el.classList.remove('expanded');
-                    });
-                    // Mantener el selectedIndex y la posición - NO volver a feeds automáticamente
-                    highlightSelected();
-                    break;
-                    
-                case 'F1':
-                    event.preventDefault();
-                    showPage('feeds');
-                    break;
-                    
-                case 'F2':
-                    event.preventDefault();
-                    showPage('saved');
-                    break;
-                    
-                case 'F3':
-                    event.preventDefault();
-                    showPage('loved');
-                    break;
-                    
-                case 'F4':
-                    event.preventDefault();
-                    showPage('config');
-                    break;
-            }
-            
-            // Manejar navegación en config
-            handleConfigKeyDown(event);
-            }); // Cierre del event listener de keydown
-            
-            // Función para actualizar fecha y hora
-            function updateDateTime() {
-                const now = new Date();
-                const dateOptions = { 
-                    weekday: 'short', 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                };
-                const timeOptions = { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit',
-                    hour12: false
-                };
-                
-                const dateElement = document.getElementById('current-date');
-                const timeElement = document.getElementById('current-time');
-                
-                if (dateElement && timeElement) {
-                    dateElement.textContent = now.toLocaleDateString('es-ES', dateOptions);
-                    timeElement.textContent = now.toLocaleTimeString('es-ES', timeOptions);
-                }
-            }
-            
-            // Actualizar inmediatamente
-            updateDateTime();
-            
-            // Actualizar cada segundo
-            setInterval(updateDateTime, 1000);
-            
-            // Recopilar información de artículos
-            document.querySelectorAll('.article-container').forEach((container, index) => {
-                const span = container.querySelector('.full-line-link');
-                const meta = container.querySelector('.meta').textContent;
-                const title = container.querySelector('.title').textContent;
-                
-                const parts = meta.split(' | ');
-                articles.push({
-                    title: title,
-                    date: parts[0] || '',
-                    source: parts[1] || '',
-                    link: span.getAttribute('data-link'),
-                    description: span.getAttribute('data-description') || '',
-                    isRead: false,
-                    isSaved: false,
-                    isLoved: false
-                });
-            });
-            
-            // Actualizar contador de feeds
-            const feedsCount = document.getElementById('feeds-count');
-            if (feedsCount) {
-                feedsCount.textContent = articles.length > 0 ? '(' + articles.length + ')' : '';
-            }
-            
-            // Inicializar selección en el primer artículo
-            if (articles.length > 0) {
-                selectedIndex = 0;
-                highlightSelected();
-            }
-            
-            // Cargar configuración de posición de botones
-            const savedPosition = localStorage.getItem('buttonsPosition') || 'right';
-            const buttonsSelect = document.getElementById('buttonsConfig');
-            const buttonsModalSelect = document.getElementById('buttonsConfigModal');
-            if (buttonsSelect) {
-                buttonsSelect.value = savedPosition;
-            }
-            if (buttonsModalSelect) {
-                buttonsModalSelect.value = savedPosition;
-            }
-            
-            // Configurar handlers para importación
-            setupImportHandlers();
-            
-        }); // Cierre del DOMContentLoaded principal
-        
-        function highlightSelected() {
-            // Quitar highlight previo de todas las páginas
-            document.querySelectorAll('.article-line').forEach(el => {
-                el.classList.remove('selected');
-            });
-            
-            // Agregar highlight al seleccionado
-            if (selectedIndex >= 0) {
-                // Buscar en la página activa usando currentPage
-                let lines;
-                
-                if (currentPage === 'feeds') {
-                    lines = document.querySelectorAll('#feeds-content .article-line');
-                } else if (currentPage === 'saved') {
-                    lines = document.querySelectorAll('#saved-articles-list .article-line');
-                } else if (currentPage === 'loved') {
-                    lines = document.querySelectorAll('#loved-articles-list .article-line');
-                }
-                
-                if (lines && lines[selectedIndex]) {
-                    lines[selectedIndex].classList.add('selected');
-                    
-                    // Calcular la posición para que el elemento seleccionado esté en la primera línea visible
-                    const element = lines[selectedIndex];
-                    const headerHeight = 140; // Altura del header + pestañas ajustada
-                    
-                    // Obtener la posición absoluta del elemento en la página
-                    const elementTop = element.offsetTop;
-                    
-                    // Scroll para que el elemento esté exactamente debajo del header (primera línea visible)
-                    const scrollTarget = elementTop - headerHeight;
-                    
-                    window.scrollTo({
-                        top: Math.max(0, scrollTarget), // Evitar scroll negativo
-                        behavior: 'smooth'
-                    });
-                }
-            }
-        }
-        
-        function toggleArticleGeneric(container, contentId, link, forceOpen = false) {
-            let content = container.querySelector('.article-content');
-            if (!content) {
-                content = document.createElement('div');
-                content.className = 'article-content';
-                content.id = contentId;
-                container.appendChild(content);
-            }
-            
-            const isCurrentlyExpanded = content.classList.contains('expanded');
-            
-            // Cerrar todos los artículos
-            document.querySelectorAll('.article-content').forEach(el => {
-                el.classList.remove('expanded');
-            });
-            
-            // Abrir el seleccionado si no estaba abierto O si forceOpen es true
-            if (!isCurrentlyExpanded || forceOpen) {
-                content.classList.add('expanded');
-                
-                // Scroll para que el artículo aparezca después del header fijo
-                setTimeout(() => {
-                    container.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                    // Ajuste adicional para el header fijo
-                    window.scrollBy(0, -140);
-                }, 100);
-                
-                // Cargar contenido si no está cargado
-                if (!content.innerHTML.trim()) {
-                    content.innerHTML = 'Loading content...';
-                    loadArticleContentGeneric(content, container, link);
-                }
-            }
-        }
-        
-        function loadArticleContentGeneric(content, container, link) {
-            // Obtener datos del artículo desde el DOM
-            const titleElement = container.querySelector('.title');
-            const metaElement = container.querySelector('.meta');
-            const linkElement = container.querySelector('.full-line-link');
-            
-            const title = titleElement ? titleElement.textContent : 'Sin título';
-            const meta = metaElement ? metaElement.textContent : '';
-            const description = linkElement ? linkElement.getAttribute('data-description') || '' : '';
-            
-            const metaParts = meta.split(' | ');
-            const date = metaParts[0] || '';
-            const source = metaParts[1] || '';
-            
-            setTimeout(() => {
-                // Limpiar la descripción preservando estructura de párrafos
-                let cleanDescription = description || 'Content not available. Double click on the line to view the complete article.';
-                
-                // Convertir elementos de bloque a saltos de línea antes de limpiar
-                cleanDescription = cleanDescription.replace(/<\/p>/gi, '\n\n');
-                cleanDescription = cleanDescription.replace(/<br\s*\/?>/gi, '\n');
-                cleanDescription = cleanDescription.replace(/<\/div>/gi, '\n');
-                cleanDescription = cleanDescription.replace(/<\/h[1-6]>/gi, '\n\n');
-                
-                // Limpiar etiquetas HTML y entidades
-                cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
-                cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
-                
-                // Limpiar saltos de línea excesivos pero mantener párrafos
-                cleanDescription = cleanDescription.replace(/\n\s*\n\s*\n/g, '\n\n');
-                cleanDescription = cleanDescription.trim();
-                
-                // Convertir saltos de línea a HTML para mostrar correctamente
-                if (cleanDescription.includes('\n\n')) {
-                    // Si hay párrafos dobles, tratarlos como párrafos separados
-                    const paragraphs = cleanDescription.split('\n\n').filter(p => p.trim());
-                    cleanDescription = paragraphs.map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('');
-                } else {
-                    // Si no hay párrafos dobles, solo reemplazar saltos de línea simples
-                    cleanDescription = '<p>' + cleanDescription.replace(/\n/g, '<br>') + '</p>';
-                }
-                
-                // Determinar posición de botones según configuración
-                const buttonsPosition = localStorage.getItem('buttonsPosition') || 'right';
-                
-                // Botones con posición configurable
-                const buttonStyle = buttonsPosition === 'right' ? 
-                    'position: absolute; right: 15px; top: 15px; text-align: right;' :
-                    'position: absolute; left: 15px; top: 15px; text-align: left;';
-                
-                const buttonsHTML = '<div style="' + buttonStyle + '">' +
-                    '<div onclick="toggleSavedByLink(\'' + link + '\')" style="color: #FFD700; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[SAVED]</div>' +
-                    '<div onclick="toggleLovedByLink(\'' + link + '\')" style="color: #FF69B4; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px; margin-bottom: 5px;">[FAVORITE]</div>' +
-                    '<div onclick="shareArticleByLink(\'' + link + '\')" style="color: #00ff00; cursor: pointer; font-family: \'JetBrains Mono\', monospace; font-size: 12px;">[SHARE]</div>' +
-                    '</div>';
-                
-                // NO mostrar imágenes en guardados/favoritos para evitar imágenes rotas
-                // Las imágenes solo están disponibles en la vista principal de feeds
-                let imageHTML = '';
-                // Solo mostrar imágenes si estamos en la vista de feeds (no en guardados/favoritos)
-                // donde tenemos la descripción completa
-                
-                // Ajustar padding según posición de botones
-                const contentPadding = buttonsPosition === 'right' ? 
-                    'padding-right: 100px;' : 
-                    'padding-left: 100px;';
-                
-                content.innerHTML = buttonsHTML +
-                                  '<div style="' + contentPadding + '">' +
-                                  (imageHTML || '') +
-                                  '<div style="margin-bottom: 10px; color: #888; font-size: 12px;">' + date + ' | ' + source + '</div>' +
-                                  '<div style="margin-bottom: 10px;"><a href="' + link + '" target="_blank" style="color: #ffff00; text-decoration: none;">' + title + '</a></div>' +
-                                  '<div style="line-height: 1.6; color: #ccc; text-align: justify;">' + cleanDescription + '</div>' +
-                                  '</div>';
-            }, 300);
-        }
-        
-        function toggleSavedByLink(link) {
-            const articleIndex = articles.findIndex(a => a.link === link);
-            if (articleIndex >= 0) {
-                toggleSaved(articleIndex);
-                updateSavedList();
-                updateLovedList();
-            }
-        }
-        
-        function toggleLovedByLink(link) {
-            const articleIndex = articles.findIndex(a => a.link === link);
-            if (articleIndex >= 0) {
-                toggleLoved(articleIndex);
-                updateSavedList();
-                updateLovedList();
-            }
-        }
-        
-        function shareArticleByLink(link) {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Interesting Article',
-                    url: link
-                });
-            } else {
-                // Fallback: copy to clipboard
-                navigator.clipboard.writeText(link).then(() => {
-                    alert('Link copied to clipboard');
-                });
-            }
-        }
-        
-        function toggleSaved(index, event) {
-            if (event) {
-                event.stopPropagation();
-            }
-            
-            const article = articles[index];
-            const button = document.getElementById('saved-btn-' + index);
-            
-            // Alternar estado (simulado - aquí harías fetch al servidor)
-            article.isSaved = !article.isSaved;
-            
-            if (button) {
-                button.textContent = article.isSaved ? '[SAVED]' : '[SAVE]';
-                button.style.color = article.isSaved ? '#FFD700' : '#00ff00';
-            }
-            
-            // Actualizar lista de guardados
-            updateSavedList();
-            
-            console.log('Alternado guardado para:', article.title);
-        }
-        
-        function toggleLoved(index) {
-            const article = articles[index];
-            const button = document.getElementById('loved-btn-' + index);
-            
-            // Alternar estado (simulado - aquí harías fetch al servidor)
-            article.isLoved = !article.isLoved;
-            
-            if (button) {
-                button.textContent = article.isLoved ? '[LOVED]' : '[LOVE]';
-                button.style.color = article.isLoved ? '#FF69B4' : '#00ff00';
-            }
-            
-            // Actualizar lista de favoritos
-            updateLovedList();
-            
-            console.log('Alternado favorito para:', article.title);
-        }
-        
-        function updateLovedList() {
-            const lovedList = document.getElementById('loved-articles-list');
-            
-            // Obtener artículos favoritos desde el servidor
-            fetch('/api/favorites')
-                .then(response => response.json())
-                .then(favorites => {
-                    // Actualizar contador en la pestaña
-                    const lovedCount = document.getElementById('loved-count');
-                    if (lovedCount) {
-                        lovedCount.textContent = favorites.length > 0 ? '(' + favorites.length + ')' : '';
-                    }
-                    
-                    if (favorites.length === 0) {
-                        lovedList.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No favorite articles yet.</p>';
-                        return;
-                    }
-                    
-                    let listHTML = '';
-                    favorites.forEach((fav, index) => {
-                        const contentId = 'content-loved-' + index;
-                        // Limpiar descripción
-                        let cleanDescription = (fav.Description || 'No hay descripción disponible.');
-                        cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
-                        cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
-                        cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
-                        cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                         
-                        listHTML += '<div class="article-container">' +
-                                   '<div class="article-line" onclick="toggleArticleContent(this, \'' + fav.Link + '\', \'loved\')">' +
-                                   '<span class="article-date">' + fav.Date + '</span>' +
-                                   '<span class="article-source">' + fav.Source + '</span>' +
-                                   '<span class="article-title">' + fav.Title + '</span>' +
-                                   '<button type="button" class="save-button saved" onclick="event.stopPropagation(); removeFavoriteFromLoved(\'' + fav.Link + '\')">SAVED</button>' +
-                                   '</div>' +
-                                   '<div id="' + contentId + '" class="article-content" style="display: none;">' +
-                                   '<div class="expanded-meta">' +
-                                   '<span class="meta-date">' + fav.Date + '</span>' +
-                                   '<span class="meta-source">' + fav.Source + '</span>' +
-                                   '</div>' +
-                                   '<div class="action-buttons">' +
-                                   '<button type="button" class="action-save saved" onclick="removeFavoriteFromLoved(\'' + fav.Link + '\')">SAVED</button>' +
-                                   '<a href="' + fav.Link + '" target="_blank" class="read-original">🔗 LEER ORIGINAL</a>' +
-                                   '</div>' +
-                                   '<div class="article-description">' + cleanDescription + '</div>' +
-                                   '</div>' +
-                                   '</div>';
-                    });
-                    lovedList.innerHTML = listHTML;
-                })
-                .catch(error => {
-                    lovedList.innerHTML = '<p style="color: #ff6b6b; text-align: center; padding: 40px;">Error loading favorites.</p>';
-                    console.error('Error loading favorites:', error);
-                });
-        }
-        
-        function updateSavedList() {
-            const savedList = document.getElementById('saved-articles-list');
-            
-            // Usar la misma lógica que updateLovedList para consistencia
-            fetch('/api/favorites')
-                .then(response => response.json())
-                .then(favorites => {
-                    // Actualizar contador en la pestaña
-                    const savedCount = document.getElementById('saved-count');
-                    if (savedCount) {
-                        savedCount.textContent = favorites.length > 0 ? '(' + favorites.length + ')' : '';
-                    }
-                    
-                    if (favorites.length === 0) {
-                        savedList.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No saved articles yet.</p>';
-                        return;
-                    }
-                    
-                    let listHTML = '';
-                    favorites.forEach((fav, index) => {
-                        const contentId = 'content-saved-' + index;
-                        // Limpiar descripción
-                        let cleanDescription = (fav.Description || 'No hay descripción disponible.');
-                        cleanDescription = cleanDescription.replace(/<[^>]*>/g, '');
-                        cleanDescription = cleanDescription.replace(/&[^;]+;/g, ' ');
-                        cleanDescription = cleanDescription.replace(/\s+/g, ' ').trim();
-                        cleanDescription = cleanDescription.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                        
-                        listHTML += '<div class="article-container">' +
-                                   '<div class="article-line" onclick="toggleArticleContent(this, \'' + fav.Link + '\', \'saved\')">' +
-                                   '<span class="article-date">' + fav.Date + '</span>' +
-                                   '<span class="article-source">' + fav.Source + '</span>' +
-                                   '<span class="article-title">' + fav.Title + '</span>' +
-                                   '<button type="button" class="save-button saved" onclick="event.stopPropagation(); removeFavoriteFromSaved(\'' + fav.Link + '\')">SAVED</button>' +
-                                   '</div>' +
-                                   '<div id="' + contentId + '" class="article-content" style="display: none;">' +
-                                   '<div class="expanded-meta">' +
-                                   '<span class="meta-date">' + fav.Date + '</span>' +
-                                   '<span class="meta-source">' + fav.Source + '</span>' +
-                                   '</div>' +
-                                   '<div class="action-buttons">' +
-                                   '<button type="button" class="action-save saved" onclick="removeFavoriteFromSaved(\'' + fav.Link + '\')">SAVED</button>' +
-                                   '<a href="' + fav.Link + '" target="_blank" class="read-original">🔗 LEER ORIGINAL</a>' +
-                                   '</div>' +
-                                   '<div class="article-description">' + cleanDescription + '</div>' +
-                                   '</div>' +
-                                   '</div>';
-                    });
-                    savedList.innerHTML = listHTML;
-                })
-                .catch(error => {
-                    savedList.innerHTML = '<p style="color: #ff6b6b; text-align: center; padding: 40px;">Error loading saved articles.</p>';
-                    console.error('Error loading saved articles:', error);
-                });
-        }
-        
-        // Funciones auxiliares para remover favoritos
-        function removeFavoriteFromLoved(link) {
-            removeFavoriteFromAPI(link, function() {
-                updateLovedList();
-            });
-        }
-        
-        function removeFavoriteFromSaved(link) {
-            removeFavoriteFromAPI(link, function() {
-                updateSavedList(); 
-            });
-        }
-        
-        function removeFavoriteFromAPI(link, callback) {
-            // Hacer petición al servidor para remover favorito
-            // Por ahora, simular la remoción
-            console.log('Removing favorite:', link);
-            if (callback) callback();
-        }
-        
-        // Función mejorada para toggle article content
-        function toggleArticleContent(element, url, context) {
-            const container = element.parentElement;
-            const content = container.querySelector('.article-content');
-            
-            // Si hay otro artículo abierto, cerrarlo primero
-            document.querySelectorAll('.article-line').forEach(line => {
-                if (line !== element && line.classList.contains('article-selected')) {
-                    const otherContent = line.parentElement.querySelector('.article-content');
-                    if (otherContent) {
-                        otherContent.style.display = 'none';
-                    }
-                    line.classList.remove('article-selected');
-                }
-            });
-            
-            if (content.style.display === 'none' || content.style.display === '') {
-                // Abrir artículo
-                content.style.display = 'block';
-                element.classList.add('article-selected');
-                
-                // Actualizar el índice seleccionado según contexto
-                if (context === 'saved' || context === 'loved') {
-                    const articles = Array.from(container.parentElement.querySelectorAll('.article-line'));
-                    selectedIndex = articles.indexOf(element);
-                }
-            } else {
-                // Cerrar artículo
-                content.style.display = 'none';
-                element.classList.remove('article-selected');
-                
-                // Si estamos en saved o loved y presionamos J, marcar como leído
-                if (context === 'saved' || context === 'loved') {
-                    const link = element.querySelector('.article-title').textContent;
-                    // Aquí podríamos implementar lógica de marcado como leído
-                    console.log('Article read in', context, ':', link);
-                }
-            }
-        }
-                    if (button) {
-                        button.textContent = '[GUARDAR]';
-                        button.style.color = '#00ff00';
-                    }
-                }
-            });
-            updateSavedList();
-        }
-        
-        function shareArticle(index) {
-            const article = articles[index];
-            
-            if (navigator.share) {
-                navigator.share({
-                    title: article.title,
-                    text: article.title,
-                    url: article.link
-                });
-            } else {
-                // Fallback: copy to clipboard
-                navigator.clipboard.writeText(article.link).then(() => {
-                    alert('Link copied to clipboard');
-                });
-            }
-        }
-        
-        function changeButtonsPosition() {
-            const select = document.getElementById('buttonsConfig');
-            const modalSelect = document.getElementById('buttonsConfigModal');
-            
-            let newValue;
-            if (select && select.value) {
-                newValue = select.value;
-                if (modalSelect) modalSelect.value = newValue;
-            } else if (modalSelect && modalSelect.value) {
-                newValue = modalSelect.value;
-                if (select) select.value = newValue;
-            }
-            
-            if (newValue) {
-                localStorage.setItem('buttonsPosition', newValue);
-                
-                // Recargar contenido de artículos expandidos
-                document.querySelectorAll('.article-content.expanded').forEach((content, index) => {
-                    const articleIndex = parseInt(content.id.replace('content-', ''));
-                    loadArticleContent(articleIndex);
-                });
-            }
-        }
-        
-        console.log('=== toggleArticle definida correctamente ===');
-        
-        function showPage(pageName, event) {
-            console.log('showPage llamada con:', pageName, event);
-            console.log('Event target:', event ? event.target : 'No event');
-            if (event) {
-                event.preventDefault();
-            }
-            
-            // Actualizar la página actual
-            currentPage = pageName;
-            
-            // Ocultar todos los contenidos
-            const contentIds = ['feeds-content', 'import-content', 'saved-content', 'loved-content', 'config-content'];
-            contentIds.forEach(id => {
-                const element = document.getElementById(id);
-                console.log('Elemento', id, ':', element);
-                if (element) element.style.display = 'none';
-            });
-            
-            // Quitar clase activa de todas las pestañas
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('tab-active');
-            });
-            
-            // Mostrar el contenido solicitado
-            const targetContent = document.getElementById(pageName + '-content');
-            console.log('Target content para', pageName + '-content', ':', targetContent);
-            if (targetContent) {
-                targetContent.style.display = 'block';
-                console.log('Contenido mostrado para:', pageName);
-            } else {
-                console.error('No se encontró el contenido para:', pageName + '-content');
-            }
-            
-            // Activar la pestaña correspondiente
-            if (event && event.target) {
-                event.target.classList.add('tab-active');
-            } else {
-                // Si no hay event.target, buscar la pestaña por el pageName
-                const tabs = document.querySelectorAll('.tab');
-                tabs.forEach(tab => {
-                    if (tab.textContent.toLowerCase().includes(pageName.toLowerCase())) {
-                        tab.classList.add('tab-active');
-                        console.log('Tab activada:', tab.textContent);
-                    }
-                });
-            }
-            
-            // Actualizar título
-            document.title = 'ANCAP WEB - ' + pageName.toUpperCase();
-            
-            // Actualizar listas y reiniciar selección
-            if (pageName === 'saved') {
-                updateSavedList();
-                selectedIndex = 0;
-                setTimeout(highlightSelected, 100);
-            } else if (pageName === 'loved') {
-                updateLovedList();
-                selectedIndex = 0;
-                setTimeout(highlightSelected, 100);
-            } else if (pageName === 'feeds') {
-                selectedIndex = 0;
-                setTimeout(highlightSelected, 100);
-            } else if (pageName === 'config') {
-                selectedIndex = -1;
-                loadFeedsManagement(); // Cargar lista de feeds
-            } else {
-                selectedIndex = -1; // Para otras páginas sin artículos
-            }
-        }
-        
-        console.log('=== showPage definida correctamente ===');
-        
-        function closeAllModals() {
-            // Esta función ya no es necesaria para páginas, pero la mantenemos por compatibilidad
-            document.title = 'ANCAP WEB';
-        }
-        
-        function closeModal(windowName) {
-            // Ya no es necesaria, pero la mantenemos por compatibilidad
-            showPage('feeds');
-        }
-        
-        // Variables para gestión de feeds
-        let feeds = [];
-        let selectedFeedIndex = -1;
-        
-        // Función para cargar la gestión de feeds
-        function loadFeedsManagement() {
-            fetch('/api/feeds')
-                .then(response => response.json())
-                .then(data => {
-                    feeds = data;
-                    
-                    // Renderizar lista inmediatamente con estado "checking"
-                    feeds.forEach(feed => {
-                        feed.isWorking = null; // null = checking
-                    });
-                    renderFeedsList();
-                    
-                    // Verificar estado en segundo plano
-                    checkAllFeedsStatus();
-                })
-                .catch(error => {
-                    console.error('Error loading feeds:', error);
-                    feeds = [];
-                    renderFeedsList();
-                });
-        }
-        
-        // Función para verificar el estado de todos los feeds
-        function checkAllFeedsStatus() {
-            let completedChecks = 0;
-            const totalFeeds = feeds.length;
-            
-            // Verificar feeds en lotes para mejor rendimiento
-            const batchSize = 5;
-            for (let i = 0; i < totalFeeds; i += batchSize) {
-                const batch = feeds.slice(i, i + batchSize);
-                
-                batch.forEach((feed, index) => {
-                    const globalIndex = i + index;
-                    checkFeedStatus(feed.url)
-                        .then(isWorking => {
-                            feeds[globalIndex].isWorking = isWorking;
-                            completedChecks++;
+                        // Abre el nuevo artículo
+                        const containersUp = document.querySelectorAll('.article-container');
+                        const newContainerUp = containersUp[selectedIndex];
+                        if (newContainerUp) {
+                            const newContentUp = newContainerUp.querySelector('.article-content');
+                            const newLineUp = newContainerUp.querySelector('.article-line');
                             
-                            // Re-renderizar cuando se complete cada lote
-                            if (completedChecks % batchSize === 0 || completedChecks === totalFeeds) {
-                                renderFeedsList();
-                            }
-                        })
-                        .catch(() => {
-                            feeds[globalIndex].isWorking = false;
-                            completedChecks++;
-                            
-                            // Re-renderizar cuando se complete cada lote
-                            if (completedChecks % batchSize === 0 || completedChecks === totalFeeds) {
-                                renderFeedsList();
-                            }
-                        });
-                });
-            }
-        }
-        
-        // Función para verificar si un feed está funcionando
-        function checkFeedStatus(url) {
-            return fetch('/api/check-feed', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: url })
-            })
-            .then(response => response.json())
-            .then(data => data.working)
-            .catch(() => false);
-        }
-        
-        // Función para renderizar la lista de feeds
-        function renderFeedsList() {
-            const feedsList = document.getElementById('feeds-list');
-            if (!feedsList) return;
-            
-            // Separar feeds por estado
-            const brokenFeeds = feeds.filter(feed => feed.isWorking === false);
-            const workingFeeds = feeds.filter(feed => feed.isWorking === true);
-            const checkingFeeds = feeds.filter(feed => feed.isWorking === null);
-            
-            let html = '';
-            
-            // Mostrar feeds rotos primero
-            brokenFeeds.forEach((feed, index) => {
-                const feedTitle = extractFeedTitle(feed.url);
-                const globalIndex = feeds.indexOf(feed);
-                html += '<div class="feed-item broken" data-index="' + globalIndex + '">' +
-                       '<div class="feed-status">BROKEN</div>' +
-                       '<div class="feed-title">' + feedTitle + '</div>' +
-                       '<div class="feed-url">' + feed.url + '</div>' +
-                       '</div>';
-            });
-            
-            // Mostrar feeds en verificación
-            checkingFeeds.forEach((feed, index) => {
-                const feedTitle = extractFeedTitle(feed.url);
-                const globalIndex = feeds.indexOf(feed);
-                html += '<div class="feed-item checking" data-index="' + globalIndex + '">' +
-                       '<div class="feed-status">CHECK...</div>' +
-                       '<div class="feed-title">' + feedTitle + '</div>' +
-                       '<div class="feed-url">' + feed.url + '</div>' +
-                       '</div>';
-            });
-            
-            // Mostrar feeds funcionando al final
-            workingFeeds.forEach((feed, index) => {
-                const feedTitle = extractFeedTitle(feed.url);
-                const globalIndex = feeds.indexOf(feed);
-                html += '<div class="feed-item working" data-index="' + globalIndex + '">' +
-                       '<div class="feed-status">WORKING</div>' +
-                       '<div class="feed-title">' + feedTitle + '</div>' +
-                       '<div class="feed-url">' + feed.url + '</div>' +
-                       '</div>';
-            });
-            
-            feedsList.innerHTML = html;
-            
-            // Mantener selección si existe, o seleccionar el primero
-            const feedItems = document.querySelectorAll('.feed-item');
-            if (feedItems.length > 0) {
-                let selectedItem = null;
-                
-                // Buscar si hay un item ya seleccionado
-                feedItems.forEach(item => {
-                    if (parseInt(item.getAttribute('data-index')) === selectedFeedIndex) {
-                        selectedItem = item;
-                    }
-                });
-                
-                // Si no hay selección previa, seleccionar el primero
-                if (!selectedItem) {
-                    selectedItem = feedItems[0];
-                    selectedFeedIndex = parseInt(selectedItem.getAttribute('data-index'));
-                }
-                
-                selectedItem.classList.add('selected');
-            }
-        }
-        
-        // Función para extraer título del feed desde la URL
-        function extractFeedTitle(url) {
-            try {
-                const urlObj = new URL(url);
-                let title = urlObj.hostname;
-                
-                // Casos especiales para mejorar la legibilidad
-                if (title.includes('youtube.com')) {
-                    return 'YouTube Channel';
-                } else if (title.includes('reddit.com')) {
-                    return 'Reddit Feed';
-                } else if (title.includes('news.ycombinator.com')) {
-                    return 'Hacker News';
-                } else if (title.includes('xkcd.com')) {
-                    return 'XKCD';
-                } else if (title.includes('brave.com')) {
-                    return 'Brave Blog';
-                } else if (title.includes('firstshowing.net')) {
-                    return 'FirstShowing.net';
-                }
-                
-                // Limpiar www. y subdominios comunes
-                title = title.replace(/^www\./, '');
-                return title;
-            } catch {
-                return 'Unknown Feed';
-            }
-        }
-        
-        // Función para eliminar un feed
-        function deleteFeed(index) {
-            if (index >= 0 && index < feeds.length) {
-                const feedToDelete = feeds[index];
-                
-                fetch('/api/delete-feed', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: feedToDelete.url })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        feeds.splice(index, 1);
-                        // Ajustar índice seleccionado
-                        if (selectedFeedIndex >= feeds.length) {
-                            selectedFeedIndex = feeds.length - 1;
+                            newContentUp.classList.add('expanded');
+                            newContentUp.style.display = 'block';
+                            newLineUp.classList.add('read');
+                            readArticles.add(newLineUp.dataset.url);
                         }
-                        renderFeedsList();
+                        
+                        scrollToShowSelected();
                     } else {
-                        alert('Error deleting feed: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting feed:', error);
-                    alert('Error deleting feed');
-                });
-            }
-        }
-        
-        // Navegación con teclado para feeds (solo cuando estamos en config)
-        function handleConfigKeyDown(event) {
-            if (currentPage !== 'config') return;
-            
-            const feedItems = document.querySelectorAll('.feed-item');
-            const totalFeeds = feedItems.length;
-            
-            if (totalFeeds === 0) return;
-            
-            switch(event.code) {
-                case 'KeyJ':
-                case 'ArrowDown':
-                    event.preventDefault();
-                    // Navegar hacia abajo en la lista visual
-                    let currentVisualIndex = -1;
-                    feedItems.forEach((item, index) => {
-                        if (item.classList.contains('selected')) {
-                            currentVisualIndex = index;
+                        // K simplemente mueve al artículo anterior en la lista si no hay nada expandido
+                        if (selectedIndex > 0) {
+                            selectedIndex--;
+                            scrollToShowSelected();
                         }
-                    });
-                    
-                    if (currentVisualIndex < totalFeeds - 1) {
-                        // Quitar selección actual
-                        feedItems.forEach(item => item.classList.remove('selected'));
-                        
-                        // Seleccionar siguiente
-                        const nextItem = feedItems[currentVisualIndex + 1];
-                        nextItem.classList.add('selected');
-                        selectedFeedIndex = parseInt(nextItem.getAttribute('data-index'));
-                        
-                        // Scroll si es necesario
-                        nextItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                     break;
-                    
-                case 'KeyK':
-                case 'ArrowUp':
-                    event.preventDefault();
-                    // Navegar hacia arriba en la lista visual
-                    let currentVisualIndexUp = -1;
-                    feedItems.forEach((item, index) => {
-                        if (item.classList.contains('selected')) {
-                            currentVisualIndexUp = index;
-                        }
-                    });
-                    
-                    if (currentVisualIndexUp > 0) {
-                        // Quitar selección actual
-                        feedItems.forEach(item => item.classList.remove('selected'));
-                        
-                        // Seleccionar anterior
-                        const prevItem = feedItems[currentVisualIndexUp - 1];
-                        prevItem.classList.add('selected');
-                        selectedFeedIndex = parseInt(prevItem.getAttribute('data-index'));
-                        
-                        // Scroll si es necesario
-                        prevItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                    break;
-                    
-                case 'KeyD':
-                    event.preventDefault();
-                    if (selectedFeedIndex >= 0 && confirm('Delete selected feed?')) {
-                        deleteFeed(selectedFeedIndex);
-                    }
-                    break;
-            }
-        }
-        
-        function setupImportHandlers() {
-            // Handler para mostrar nombre del archivo seleccionado
-            const fileInput = document.getElementById('opml-file');
-            if (fileInput) {
-                fileInput.addEventListener('change', function() {
-                    const fileName = this.files[0] ? this.files[0].name : '';
-                    const fileNameSpan = document.getElementById('file-name');
-                    if (fileNameSpan) {
-                        fileNameSpan.textContent = fileName;
-                    }
-                });
-            }
-            
-            // Handler para formulario OPML
-            const opmlForm = document.getElementById('opml-upload-form');
-            if (opmlForm) {
-                opmlForm.addEventListener('submit', async function(e) {
+                
+                case 'enter':
                     e.preventDefault();
-                    
-                    if (!fileInput.files[0]) {
-                        alert('Please select an OPML file');
-                        return;
+                    if (selectedIndex >= 0) {
+                        toggleArticle(selectedIndex);
                     }
+                    break;
                     
-                    const formData = new FormData();
-                    formData.append('opml', fileInput.files[0]);
-                    
-                    try {
-                        const response = await fetch('/upload-opml', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        if (response.ok) {
-                            const result = await response.text();
-                            alert('✅ ' + result);
-                            fileInput.value = '';
-                            document.getElementById('file-name').textContent = '';
-                            switchTab('feeds');
-                            setTimeout(() => window.location.reload(), 1000);
-                        } else {
-                            const text = await response.text();
-                            alert('Error: ' + text);
+                case ' ':
+                    e.preventDefault();
+                    // Space abre/cierra el artículo seleccionado
+                    if (selectedIndex >= 0) {
+                        const containers = document.querySelectorAll('.article-container');
+                        const selectedContainer = containers[selectedIndex];
+                        if (selectedContainer) {
+                            const content = selectedContainer.querySelector('.article-content');
+                            const line = selectedContainer.querySelector('.article-line');
+                            
+                            if (content.classList.contains('expanded')) {
+                                // Si está expandido, lo cierra
+                                content.classList.remove('expanded');
+                                content.style.display = 'none';
+                                line.classList.add('read');
+                            } else {
+                                // Si no está expandido, lo abre
+                                content.classList.add('expanded');
+                                content.style.display = 'block';
+                                line.classList.add('read');
+                                readArticles.add(line.dataset.url);
+                            }
                         }
-                    } catch (error) {
-                        alert('Error importing feeds');
                     }
+                    break;
+                
+                case 'escape':
+                    e.preventDefault();
+                    closeAllArticles();
+                    break;
+            }
+        });
+
+        function scrollToShowSelected() {
+            // Remove previous highlights
+            document.querySelectorAll('.article-line').forEach(line => {
+                line.classList.remove('selected');
+            });
+            
+            // Highlight current
+            const lines = document.querySelectorAll('.article-line');
+            if (lines[selectedIndex]) {
+                lines[selectedIndex].classList.add('selected');
+                
+                // Scroll para que el elemento seleccionado aparezca justo debajo del header fijo
+                // El header tiene aproximadamente 120px de altura
+                const headerOffset = 120;
+                const elementTop = lines[selectedIndex].offsetTop;
+                
+                window.scrollTo({
+                    top: elementTop - headerOffset,
+                    behavior: 'smooth'
                 });
+            }
+        }
+
+        function closeAllArticles() {
+            document.querySelectorAll('.article-content').forEach(content => {
+                content.classList.remove('expanded');
+                content.style.display = 'none';
+            });
+            document.querySelectorAll('.article-line').forEach(line => {
+                line.classList.remove('selected');
+            });
+            selectedIndex = -1;
+        }
+
+        function switchTab(tabName) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Show selected tab content
+            const tabContent = document.getElementById(tabName + '-tab');
+            if (tabContent) {
+                tabContent.style.display = 'block';
             }
             
-            // Handler para formulario manual de feeds
-            const manualForm = document.getElementById('manual-feed-form');
-            if (manualForm) {
-                manualForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    
-                    const feedUrl = document.getElementById('feed-url').value;
-                    const formData = new FormData();
-                    formData.append('url', feedUrl);
-                    
-                    try {
-                        const response = await fetch('/add', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        if (response.ok) {
-                            alert('✅ Feed added successfully!');
-                            document.getElementById('feed-url').value = '';
-                            switchTab('feeds');
-                            setTimeout(() => window.location.reload(), 1000);
-                        } else {
-                            const text = await response.text();
-                            alert('Error: ' + text);
-                        }
-                    } catch (error) {
-                        alert('Error adding feed');
-                    }
-                });
+            // Activate selected tab
+            const tab = Array.from(document.querySelectorAll('.tab')).find(t => 
+                t.textContent.toLowerCase().includes(tabName.replace('feeds', 'rss feeds').toLowerCase())
+            );
+            if (tab) {
+                tab.classList.add('active');
+            }
+            
+            // Reset article selection if switching to feeds
+            if (tabName === 'feeds') {
+                selectedIndex = 0;
+                scrollToShowSelected();
             }
         }
-        
-        function exportFeeds() {
-            window.open('/export-opml', '_blank');
-        }
-        
-        function clearCache() {
-            fetch('/clear-cache', { method: 'POST' })
-                .then(response => response.text())
-                .then(data => {
-                    alert('✅ Cache cleared successfully');
-                })
-                .catch(error => {
-                    alert('Error clearing cache');
+
+        // Initialize articles array and set first article as selected
+        document.addEventListener('DOMContentLoaded', function() {
+            const containers = document.querySelectorAll('.article-container');
+            containers.forEach((container, index) => {
+                articles.push({
+                    element: container,
+                    index: index
                 });
-        }
-        
-        // Verificar que las funciones importantes estén disponibles al final
-        console.log('=== Verificando funciones globales ===');
-        console.log('toggleArticle defined:', typeof toggleArticle);
-        console.log('showPage defined:', typeof showPage);
-        console.log('toggleArticleContent defined:', typeof toggleArticleContent);
-        */
+                
+                // Add click handler to entire line
+                const line = container.querySelector('.article-line');
+                if (line) {
+                    line.addEventListener('click', () => toggleArticle(index));
+                }
+                
+                // Add click handler specifically to title for better UX
+                const title = container.querySelector('.title');
+                if (title) {
+                    title.style.cursor = 'pointer';
+                    title.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent double triggering
+                        toggleArticle(index);
+                    });
+                }
+            });
+            
+            // Add click handlers for tabs
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                tab.addEventListener('click', () => {
+                    const tabNames = ['feeds', 'favorites', 'saved', 'config'];
+                    switchTab(tabNames[index]);
+                });
+            });
+            
+            // Select first article by default (but don't expand it)
+            if (containers.length > 0) {
+                selectedIndex = 0;
+                scrollToShowSelected();
+            }
+            
+            // Ensure all articles start closed
+            document.querySelectorAll('.article-content').forEach(content => {
+                content.classList.remove('expanded');
+                content.style.display = 'none';
+            });
+            
+            // Initialize with feeds tab active
+            switchTab('feeds');
+        });
     </script>
-    <!-- FIN DEL JAVASCRIPT PROBLEMÁTICO COMENTADO -->
 </head>
 <body>
-    <div class="container">
-        <div class="main-header">
-            <div class="datetime-display">
-                <div id="current-date"></div>
-                <div id="current-time"></div>
-            </div>
-            <div class="ascii-logo">
-▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
-█▀█ █ ▀█ █▄▄ █▀█ █▀▀
-            </div>
-            <div class="subtitle">» A LIBERTARIAN RSS READER «</div>
-            <div style="position: absolute; top: 8px; right: 10px;">
-                <a href="/logout" style="color: #ffff00; text-decoration: none; font-size: 10px;">[LOGOUT]</a>
-            </div>
-        </div>
-        <div class="tabs">
-            <a class="tab tab-active" href="#" onclick="showPage('feeds', event)">FEEDS <span id="feeds-count"></span> <span class="tab-shortcut">(F1)</span></a>
-            <a class="tab" href="#" onclick="showPage('saved', event)">SAVED <span id="saved-count"></span> <span class="tab-shortcut">(F2)</span></a>
-            <a class="tab" href="#" onclick="showPage('loved', event)">LOVED <span id="loved-count"></span> <span class="tab-shortcut">(F3)</span></a>
-            <a class="tab" href="#" onclick="showPage('config', event)">CONFIG <span class="tab-shortcut">(F4)</span></a>
-        </div>
-        
-        <!-- Contenido principal de feeds -->
-        <div id="feeds-content" class="page-content" style="display: block;">
-            <div style="height: 1px; background: #000; margin-bottom: 0px;"></div>`
-
-	for i, article := range data.Articles {
-		if i >= 50 {
-			break
-		}
-		// Limpiar y escapar caracteres especiales para HTML/JavaScript
-		description := article.Description
-
-		// Limpiar HTML tags y contenido problemático antes de escapar
-		description = strings.ReplaceAll(description, "&lt;", "<")
-		description = strings.ReplaceAll(description, "&gt;", ">")
-		description = strings.ReplaceAll(description, "&amp;", "&")
-
-		// Remover contenido problemático común en feeds
-		description = strings.ReplaceAll(description, "Comments\"", "")
-		description = strings.ReplaceAll(description, "[...]\"", "")
-
-		// Escapar caracteres especiales para HTML
-		description = strings.ReplaceAll(description, "&", "&amp;")
-		description = strings.ReplaceAll(description, "<", "&lt;")
-		description = strings.ReplaceAll(description, ">", "&gt;")
-		description = strings.ReplaceAll(description, `"`, "&quot;")
-		description = strings.ReplaceAll(description, `'`, "&#39;")
-		description = strings.ReplaceAll(description, "\n", " ")
-		description = strings.ReplaceAll(description, "\r", " ")
-		description = strings.ReplaceAll(description, "\t", " ")
-
-		// Limpiar título también
-		title := article.Title
-		title = strings.ReplaceAll(title, "&", "&amp;")
-		title = strings.ReplaceAll(title, "<", "&lt;")
-		title = strings.ReplaceAll(title, ">", "&gt;")
-		title = strings.ReplaceAll(title, `"`, "&quot;")
-		title = strings.ReplaceAll(title, `'`, "&#39;")
-
-		// Limitar longitud para evitar atributos muy largos, pero permitir más espacio para imágenes
-		if len(description) > 2000 {
-			description = description[:2000] + "..."
-		}
-
-		html += `<div class="article-container">
-            <div class="article-line" onclick="toggleArticle(` + fmt.Sprintf("%d", i) + `, event)">
-                <span class="full-line-link" data-link="` + article.Link + `" data-description="` + description + `">
-                    <span class="meta">` + article.Date + ` | <span style="color: #ffff00;">` + article.Source + `</span> | </span>
-                    <span class="title">` + title + `</span>
-                </span>
-            </div>
-            <div id="content-` + fmt.Sprintf("%d", i) + `" class="article-content"></div>
-        </div>`
-	}
-
-	html += `        </div>
-        
-        <!-- Saved Articles Page -->
-        <div id="saved-content" class="page-content" style="display: none;">
-            <div class="page-header">SAVED ARTICLES (F2)</div>
-            <div style="height: 1px; background: #000; margin-bottom: 0px;"></div>
-            <div id="saved-articles-list">
-                <p style="color: #888; text-align: center; padding: 40px;">Loading saved articles...</p>
-            </div>
-        </div>
-        
-        <!-- Loved Page -->
-        <div id="loved-content" class="page-content" style="display: none;">
-            <div class="page-header">LOVED ARTICLES (F3)</div>
-            <div style="height: 1px; background: #000; margin-bottom: 0px;"></div>
-            <div id="loved-articles-list">
-                <p style="color: #888; text-align: center; padding: 40px;">Loading loved articles...</p>
-            </div>
-        </div>
-        
-        <!-- Config Page -->
-        <div id="config-content" class="page-content" style="display: none;">
-            <div class="page-header">CONFIGURATION (F4)</div>
+    <div class="header-fixed">
+        <div class="header-content">
+            <h1>LIBERTARIAN 2.0 - ` + time.Now().Format("15:04:05") + ` [` + strconv.Itoa(len(data.Articles)) + ` artículos]</h1>
             
-            <div class="config-section">
-                <h3>📥 IMPORT FEEDS</h3>
-                <div class="import-section">
-                    <form id="opml-upload-form" enctype="multipart/form-data">
-                        <div class="upload-area">
-                            <input type="file" id="opml-file" name="opml" accept=".opml,.xml" style="display: none;">
-                            <button type="button" onclick="document.getElementById('opml-file').click()" class="upload-button">
-                                📁 SELECT OPML FILE
-                            </button>
-                            <span id="file-name" class="file-name"></span>
-                        </div>
-                        <button type="submit" class="import-button">📥 IMPORT FEEDS</button>
-                    </form>
-                    
-                    <div class="manual-add">
-                        <h4>➕ ADD INDIVIDUAL FEED</h4>
-                        <form id="manual-feed-form">
-                            <input type="url" id="feed-url" placeholder="https://example.com/rss.xml" required>
-                            <button type="submit">ADD FEED</button>
-                        </form>
-                    </div>
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <div class="tab tab-active" data-tab="feeds">
+                    FEEDS [` + strconv.Itoa(len(data.Articles)) + `] <span class="tab-shortcut">[F1]</span>
                 </div>
-            </div>
-            
-            <div class="config-section">
-                <h3>📋 FEED MANAGEMENT</h3>
-                <div class="feeds-management">
-                    <div class="feeds-stats">
-                        <span id="total-feeds">Total: --</span>
-                        <span id="active-feeds">Active: --</span>
-                    </div>
-                    <div class="management-actions">
-                        <button onclick="exportFeeds()" class="export-button">📤 EXPORT OPML</button>
-                        <button onclick="clearCache()" class="clear-cache-button">🗑️ CLEAR CACHE</button>
-                    </div>
+                <div class="tab" data-tab="favorites">
+                    FAVORITOS [0] <span class="tab-shortcut">[F2]</span>
                 </div>
-            </div>
-
-            <div class="config-section">
-                <h3>RSS FEEDS MANAGEMENT</h3>
-                <p style="color: #888; margin-bottom: 20px;">Navigate with J/K, delete with D</p>
-                
-                <div id="feeds-list-container">
-                    <div id="feeds-list"></div>
+                <div class="tab" data-tab="saved">
+                    GUARDADOS [0] <span class="tab-shortcut">[F3]</span>
                 </div>
-            </div>
-            
-            <div class="config-section">
-                <h3>Interface Settings</h3>
-                <label class="config-label">Article buttons position:</label>
-                <select id="buttonsConfigModal" onchange="changeButtonsPosition()" class="config-select">
-                    <option value="right">Right</option>
-                    <option value="left">Left</option>
-                </select>
-            </div>
-            
-            <div class="config-section">
-                <h3>Keyboard shortcuts</h3>
-                <p><strong>F1-F4:</strong> Switch between pages</p>
-                <p><strong>↑/↓, J/K:</strong> Navigate articles</p>
-                <p><strong>Space/Enter:</strong> Expand article</p>
-                <p><strong>S/L/C:</strong> Save/Favorite/Share</p>
-                <p><strong>Escape:</strong> Return to FEEDS</p>
+                <div class="tab" data-tab="config">
+                    CONFIG <span class="tab-shortcut">[F4]</span>
+                </div>
             </div>
         </div>
     </div>
     
-    <script>
-        // DEFINICIONES GLOBALES - FUNCIONES DE NAVEGACIÓN
+    <div class="container">
+        <div class="content-wrapper">
         
-        // Variables globales necesarias
-        let selectedIndex = 0;
-        let currentPage = 'feeds';
-        const articles = [];
+        <!-- Tab Content -->
+        <div id="feeds-tab" class="tab-content active">
+            <div class="info">Use J/K o ↑↓ para navegar, SPACE/ENTER para expandir, ESC para cerrar, F1-F4 para pestañas</div>`
+
+	for _, article := range data.Articles {
+		html += fmt.Sprintf(`
+        <div class="article-container">
+            <div class="article-line" data-url="%s">
+                <span class="date-bracket">%s</span>&nbsp;&nbsp;
+                <span class="source-name">%s</span>&nbsp;&nbsp;
+                <span class="title">%s</span>
+            </div>
+            <div class="article-content">
+                <div style="margin-bottom: 10px; color: #888; font-size: 12px;">%s  %s</div>
+                <div>%s</div>
+                <br>
+                <a href="%s" target="_blank" style="color: #ffff00;">→ Leer artículo completo</a>
+            </div>
+        </div>`,
+			article.Link,
+			article.Date,
+			article.Source,
+			article.Title,
+			article.Date,
+			article.Source,
+			article.Description,
+			article.Link)
+	}
+
+	html += `
+        </div>
         
-        // Función principal de navegación entre pestañas
-        window.showPage = function(pageName, event) {
-            if (event) {
-                event.preventDefault();
-            }
-            
-            // Actualizar la página actual
-            currentPage = pageName;
-            
-            // Ocultar todos los contenidos
-            const contentIds = ['feeds-content', 'saved-content', 'loved-content', 'config-content'];
-            contentIds.forEach(id => {
-                const element = document.getElementById(id);
-                if (element) element.style.display = 'none';
-            });
-            
-            // Quitar clase activa de todas las pestañas
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('tab-active');
-            });
-            
-            // Mostrar el contenido solicitado
-            const targetContent = document.getElementById(pageName + '-content');
-            if (targetContent) {
-                targetContent.style.display = 'block';
-            }
-            
-            // Activar la pestaña correspondiente
-            if (event && event.target) {
-                event.target.classList.add('tab-active');
-            } else {
-                // Si no hay event.target, buscar la pestaña por el nombre
-                const tabs = document.querySelectorAll('.tab');
-                tabs.forEach(tab => {
-                    if (tab.textContent.toLowerCase().includes(pageName)) {
-                        tab.classList.add('tab-active');
-                    }
-                });
-            }
-            
-            selectedIndex = 0;
-        };
+        <!-- Favorites Tab -->
+        <div id="favorites-tab" class="tab-content">
+            <div class="page-header">ARTÍCULOS FAVORITOS</div>
+            <div class="info">Aquí aparecerán los artículos que guardes como favoritos</div>
+            <div id="favorites-list">
+                <!-- Contenido cargado dinámicamente -->
+            </div>
+        </div>
         
-        // Función para toggle de artículos en feeds principales
-        window.toggleArticle = function(index, event) {
-            console.log('🎯 DEBUG toggleArticle - Index:', index);
-            
-            if (event) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-            
-            // MÉTODO 1: Buscar por ID directo (content-X)
-            const contentById = document.getElementById('content-' + index);
-            console.log('🔍 Buscando content-' + index + ':', !!contentById);
-            
-            if (contentById) {
-                const isCurrentlyExpanded = contentById.classList.contains('expanded');
-                console.log('📄 Contenido expandido actualmente:', isCurrentlyExpanded);
-                
-                // Cerrar todos los artículos
-                document.querySelectorAll('.article-content').forEach(el => {
-                    el.classList.remove('expanded');
-                });
-                
-                if (!isCurrentlyExpanded) {
-                    // Abrir el artículo
-                    contentById.classList.add('expanded');
-                    selectedIndex = index;
-                    console.log('✅ Artículo expandido - clases:', contentById.className);
-                    console.log('📝 Contenido HTML:', contentById.innerHTML.substring(0, 200) + '...');
-                    
-                    // Scroll más suave y posicionado al contenido expandido
-                    setTimeout(() => {
-                        contentById.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }, 100);
-                } else {
-                    console.log('📄 Artículo cerrado');
-                }
-                return;
-            }
-            
-            // MÉTODO 2: Buscar usando la estructura de containers
-            const containers = document.querySelectorAll('#feeds-content .article-container');
-            console.log('📦 Total containers encontrados:', containers.length);
-            if (containers[index]) {
-                console.log('📦 Container [' + index + '] encontrado');
-                const content = containers[index].querySelector('.article-content');
-                console.log('📄 Content encontrado en container:', !!content);
-                
-                if (content) {
-                    const isCurrentlyExpanded = content.classList.contains('expanded');
-                    console.log('📄 Expandido (método 2):', isCurrentlyExpanded);
-                    
-                    // Cerrar todos los artículos
-                    document.querySelectorAll('.article-content').forEach(el => {
-                        el.classList.remove('expanded');
-                    });
-                    
-                    if (!isCurrentlyExpanded) {
-                        // Abrir el artículo
-                        content.classList.add('expanded');
-                        console.log('✅ Expandido (método 2) - HTML:', content.innerHTML.substring(0, 200) + '...');
-                        
-                        // Scroll más suave
-                        setTimeout(() => {
-                            content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }, 100);
-                    }
-                    return;
-                }
-            } else {
-                console.log('❌ No se encontró container para index:', index);
-            }
-            
-            // MÉTODO 3: Simular click en el artículo seleccionado
-            const selectedArticleLine = document.querySelector('.article-line.article-selected');
-            console.log('🖱️ ArticleLine seleccionado encontrado:', !!selectedArticleLine);
-            if (selectedArticleLine) {
-                const fullLineLink = selectedArticleLine.querySelector('.full-line-link');
-                console.log('🔗 FullLineLink encontrado:', !!fullLineLink);
-                if (fullLineLink) {
-                    console.log('🖱️ Haciendo click en full-line-link');
-                    fullLineLink.click();
-                    return;
-                }
-                
-                console.log('🖱️ Haciendo click directo en article-line');
-                selectedArticleLine.click();
-                return;
-            }
-            
-            console.log('❌ NO SE PUDO EXPANDIR EL ARTÍCULO CON NINGÚN MÉTODO');
-        };
+        <!-- Saved Tab -->
+        <div id="saved-tab" class="tab-content">
+            <div class="page-header">ARTÍCULOS GUARDADOS</div>
+            <div class="info">Artículos guardados para leer más tarde</div>
+            <div id="saved-list">
+                <!-- Contenido cargado dinámicamente -->
+            </div>
+        </div>
         
-        // Función para toggle de artículos en saved/loved
-        window.toggleArticleContent = function(element, url, context) {
-            
-            const container = element.closest('.article-container');
-            if (!container) return;
-            
-            const content = container.querySelector('.article-content');
-            if (!content) return;
-            
-            const isCurrentlyExpanded = content.classList.contains('expanded');
-            
-            // Cerrar todos los artículos
-            document.querySelectorAll('.article-content').forEach(el => {
-                el.classList.remove('expanded');
-                el.parentElement.querySelector('.article-line')?.classList.remove('article-selected');
-            });
-            
-            if (!isCurrentlyExpanded) {
-                // Abrir el artículo
-                content.classList.add('expanded');
-                element.classList.add('article-selected');
-                
-                // Scroll al artículo
-                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        };
-        
-        // Navegación por teclado - VERSIÓN FINAL LIMPIA
-        document.addEventListener('keydown', function(event) {
-            // Evitar atajos si hay un input activo
-            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-                return;
-            }
-            
-            // Navegación con J/K
-            if (event.key === 'j' || event.key === 'J' || event.code === 'KeyJ') {
-                event.preventDefault();
-                const totalArticles = document.querySelectorAll('#feeds-content .article-container').length;
-                if (selectedIndex < totalArticles - 1) {
-                    selectedIndex++;
-                    highlightSelected();
-                }
-                return;
-            }
-            
-            if (event.key === 'k' || event.key === 'K' || event.code === 'KeyK') {
-                event.preventDefault();
-                if (selectedIndex > 0) {
-                    selectedIndex--;
-                    highlightSelected();
-                }
-                return;
-            }
-            
-            // Resto de teclas
-            const key = event.key.toLowerCase();
-            
-            switch(key) {
-                case 'f1':
-                    event.preventDefault();
-                    showPage('feeds');
-                    break;
-                    
-                case 'f2':
-                    event.preventDefault();
-                    showPage('saved');
-                    break;
-                    
-                case 'f3':
-                    event.preventDefault();
-                    showPage('loved');
-                    break;
-                    
-                case 'f4':
-                    event.preventDefault();
-                    showPage('config');
-                    break;
-                    
-                case ' ':
-                    event.preventDefault();
-                    if (currentPage === 'feeds' && selectedIndex >= 0) {
-                        toggleArticle(selectedIndex);
-                    }
-                    break;
-                    
-                case 'enter':
-                    event.preventDefault();
-                    if (currentPage === 'feeds' && selectedIndex >= 0) {
-                        toggleArticle(selectedIndex);
-                    }
-                    break;
-                    
-                case 'arrowdown':
-                    event.preventDefault();
-                    const totalDown = document.querySelectorAll('#feeds-content .article-container').length;
-                    if (selectedIndex < totalDown - 1) {
-                        selectedIndex++;
-                        highlightSelected();
-                    }
-                    break;
-                    
-                case 'arrowup':
-                    event.preventDefault();
-                    if (selectedIndex > 0) {
-                        selectedIndex--;
-                        highlightSelected();
-                    }
-                    break;
-            }
-        });
-        
-        // Función para destacar el artículo seleccionado
-        function highlightSelected() {
-            // Quitar highlight previo
-            document.querySelectorAll('.article-line').forEach(el => {
-                el.classList.remove('article-selected');
-                el.style.backgroundColor = ''; // Limpiar estilos inline
-                el.style.color = '';
-                el.style.border = '';
-            });
-            
-            // Agregar highlight al actual
-            if (currentPage === 'feeds') {
-                const containers = document.querySelectorAll('#feeds-content .article-container');
-                
-                if (containers[selectedIndex]) {
-                    const articleLine = containers[selectedIndex].querySelector('.article-line');
-                    
-                    if (articleLine) {
-                        articleLine.classList.add('article-selected');
-                        
-                        // Añadir highlighting visual más visible
-                        articleLine.style.backgroundColor = 'rgba(0, 255, 0, 0.2)'; // Verde translúcido
-                        articleLine.style.border = '2px solid #00ff00'; // Borde verde
-                        articleLine.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.5)'; // Sombra verde
-                        
-                        articleLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }
-            }
-        }
-        
-        // Inicializar cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            // Asegurar que la página tenga el foco para recibir eventos de teclado
-            window.focus();
-            document.body.focus();
-            
-            // Destacar el primer artículo
-            selectedIndex = 0;
-            setTimeout(function() {
-                highlightSelected();
-            }, 500);
-        });
-    </script>
+        <!-- Config Tab -->
+        <div id="config-tab" class="tab-content">
+            <div class="page-header">CONFIGURACIÓN</div>
+            <div class="config-section">
+                <h3>Atajos de teclado</h3>
+                <p><strong>F1:</strong> Feeds | <strong>F2:</strong> Favoritos | <strong>F3:</strong> Guardados | <strong>F4:</strong> Config</p>
+                <p><strong>J/K o ↑/↓:</strong> Navegar artículos</p>
+                <p><strong>Space/Enter:</strong> Expandir artículo</p>
+                <p><strong>ESC:</strong> Cerrar artículos</p>
+            </div>
+            <div class="config-section">
+                <h3>Información del sistema</h3>
+                <p>Servidor: LIBERTARIAN 2.0</p>
+                <p>Artículos cargados: ` + strconv.Itoa(len(data.Articles)) + `</p>
+                <p>Última actualización: ` + time.Now().Format("15:04:05") + `</p>
+            </div>
+        </div>
+        </div> <!-- /content-wrapper -->
+    </div> <!-- /container -->
 </body>
 </html>`
 
 	w.Write([]byte(html))
-	log.Printf("✅ HTML rendered successfully with %d articles", len(data.Articles))
 }
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -3700,7 +1913,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
         body { 
             background: #000; 
             color: #00ff00; 
-            font-family: 'JetBrains Mono', 'Courier New', monospace; 
+            font-family: 'JetBrains Mono', monospace; 
             margin: 0; 
             padding: 20px;
             height: 100vh;
@@ -3728,7 +1941,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             margin-bottom: 12px;
             color: #00aa00;
             text-align: center;
-            font-family: 'Courier New', monospace;
+            font-family: 'JetBrains Mono', monospace;
             white-space: pre;
             line-height: 1.0;
             text-shadow: 0 0 10px #00aa00, 0 0 20px #00aa00;
@@ -4406,10 +2619,10 @@ func main() {
 	mux.Handle("/logout", authMiddleware(http.HandlerFunc(logoutHandler)))
 
 	log.Println("🚀 Starting ANCAP WEB Server with Authentication...")
-	log.Println("🌐 Server running at http://localhost:8080")
+	log.Println("🌐 Server running at http://localhost:8082")
 	log.Println("🔐 Default users: admin/admin123, ancap/libertad")
 
-	if err := http.ListenAndServe(":8080", gzipMiddleware(mux)); err != nil {
+	if err := http.ListenAndServe(":8082", gzipMiddleware(mux)); err != nil {
 		log.Fatalf("❌ Server failed to start: %v", err)
 	}
 }
