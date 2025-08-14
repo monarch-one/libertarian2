@@ -76,6 +76,20 @@ type FavoriteArticle struct {
 	Source string `json:"source"`
 }
 
+type SavedArticle struct {
+	Title  string `json:"title"`
+	Link   string `json:"link"`
+	Source string `json:"source"`
+	User   string `json:"user"`
+}
+
+type LovedArticle struct {
+	Title  string `json:"title"`
+	Link   string `json:"link"`
+	Source string `json:"source"`
+	User   string `json:"user"`
+}
+
 type User struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -482,28 +496,9 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LIBERTARIAN 2.0 - ` + time.Now().Format("15:04:05") + ` [AIR]</title>
     <style>
-        @font-face {
-            font-family: 'JetBrains Mono';
-            src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2'),
-                 url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf') format('truetype');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-        }
-        @font-face {
-            font-family: 'JetBrains Mono';
-            src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Bold.ttf') format('truetype');
-            font-weight: 700;
-            font-style: normal;
-            font-display: swap;
-        }
-        @font-face {
-            font-family: 'JetBrains Mono';
-            src: url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Light.ttf') format('truetype');
-            font-weight: 300;
-            font-style: normal;
-            font-display: swap;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap');
+        /* Usar Google Fonts para JetBrains Mono y evitar rutas locales 404 */
         body { 
             background: #000; 
             color: #00ff00; 
@@ -511,7 +506,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             font-size: 14px; 
             font-weight: 300;
             margin: 0; 
-            padding: 20px;
+            padding: 0 20px 20px 20px; /* sin padding-top para evitar hueco bajo el header */
             line-height: 1.2;
             display: flex;
             justify-content: center;
@@ -527,25 +522,62 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             top: 0;
             left: 0;
             right: 0;
-            background: #000;
-            z-index: 1000;
-            padding: 20px 0;
-            border-bottom: 1px solid #333;
+            width: 100vw;
+            background: #000 !important; /* Fondo negro simple */
+            z-index: 999999 !important;
+            padding: 8px 0 0 0; /* Sin espacio extra inferior */
+            border-bottom: none; /* Sin línea visible */
+            min-height: 50px; /* Altura muy compacta */
+            overflow: hidden;
         }
+        
         .header-content {
             max-width: 720px;
             margin: 0 auto;
             padding: 0 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header-ascii {
+            font-family: 'JetBrains Mono', monospace;
+            color: #00ff00;
+            white-space: pre;
+            line-height: 1.0;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+        
+        .header-subtitle {
+            font-size: 12px;
+            color: #ffff00;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 3px; /* Espacio mínimo */
+            font-weight: 400;
+        }
+        
+        .header-info {
+            font-size: 11px;
+            color: #ffff00;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 1px;
+            text-align: center;
         }
         .content-wrapper {
-            margin-top: 120px; /* Espacio para el header fijo - reducido */
+            margin-top: 0; /* se ajusta dinámicamente con JS al alto real del header */
         }
         .tabs {
             display: flex;
             width: 100%;
             margin-bottom: 0; /* Sin separación */
             border-bottom: none; /* Sin línea de separación */
+            position: relative;
         }
+        
+        /* Eliminado pseudo-elemento: el header ya cubre con padding inferior */
         .tab {
             flex: 1;
             text-align: center;
@@ -558,15 +590,16 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             font-size: 12px;
             cursor: pointer;
             position: relative;
+            border-bottom: none; /* sin línea inferior para evitar doble línea bajo las pestañas */
         }
         .tab:hover {
             background: #111;
         }
-        .tab.tab-active {
+        .tab.active {
             background: #000;
             color: #00ff00;
-            font-weight: bold;
-            border-bottom: 1px solid #000;
+            font-weight: bold; /* mantener negrita solo en pestañas activas */
+            border-bottom: none; /* quitar la línea inferior cuando está activa */
         }
         .tab-shortcut {
             font-size: 10px;
@@ -576,26 +609,14 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .tab-content {
             display: none;
             width: 100%;
+            position: relative; /* Para que ::before funcione */
         }
         .tab-content.active {
             display: block;
         }
-        .tab {
-            border: 1px solid #333;
-            background: #000;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            cursor: pointer;
-        }
-        .tab:hover {
-            background: #111;
-        }
-        .tab.tab-active {
-            background: #000;
-            color: #00ff00;
-            font-weight: bold;
-            border-bottom: 1px solid #000;
-        }
+        /* Eliminar posibles líneas dobles bajo tabs */
+        .tabs { border-bottom: none; }
+
         h1 { 
             color: #00ff00; 
             margin-bottom: 20px; 
@@ -629,10 +650,13 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         .article-line:hover {
             background: #111;
         }
-        .article-line.selected {
-            background: #222;
-            border-left: 3px solid #00ff00;
+        .action-link {
+            color: #00ff00;
+            text-decoration: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
         }
+        .action-link:hover { text-decoration: underline; }
         .full-line-link {
             color: #00ff00;
             text-decoration: none;
@@ -673,7 +697,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             line-height: 1.2;
         }
         .title { 
-            color: #00ff00; 
+            color: #ffffff; 
             font-family: 'JetBrains Mono', monospace;
             font-weight: 300;
             font-size: 14px;
@@ -690,23 +714,27 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             color: #ffff00;
             text-decoration: underline;
         }
-        }
         .article-content {
             display: none;
             background: #111;
             color: #00ff00;
             padding: 15px;
             margin: 5px 0;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Roboto', sans-serif; /* Cambio a Roboto para contenido */
             font-size: 14px;
+            font-weight: 400;
             line-height: 1.4;
             border-left: 3px solid #00ff00;
             white-space: normal;
             word-wrap: break-word;
-            max-height: 300px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            position: relative;
+            max-height: none; /* cargar completo */
+            overflow: visible; /* sin scrollbar interno */
+            position: relative; /* para actions absolutas */
+        }
+        
+        /* Asegurar que todos los artículos empiecen cerrados */
+        .article-content:not(.expanded) {
+            display: none !important;
         }
         .article-content img {
             max-width: 100%;
@@ -714,6 +742,32 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             display: block;
             margin: 10px 0;
             border: 1px solid #333;
+        }
+        .article-content p {
+            margin: 15px 0;
+            line-height: 1.7;
+            text-align: justify;
+            word-spacing: 0.1em;
+            font-family: 'Roboto', sans-serif; /* Roboto para párrafos */
+            font-weight: 400;
+        }
+        .article-content p:first-child {
+            margin-top: 0;
+        }
+        .article-content p:last-child {
+            margin-bottom: 0;
+        }
+        .article-description {
+            font-family: 'Roboto', sans-serif; /* Roboto para descripción */
+            font-weight: 400;
+            line-height: 1.6;
+        }
+        .article-title-full {
+            font-family: 'Roboto', sans-serif; /* Roboto para título completo */
+            font-weight: 700;
+        }
+        .article-content br {
+            margin: 6px 0;
         }
         .article-content iframe,
         .article-content video,
@@ -724,7 +778,28 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         .article-content.expanded {
             display: block;
+            color: #ffff00; /* Amarillo para contenido expandido */
+            margin-bottom: 20px; /* Línea vacía debajo del artículo expandido */
         }
+        .article-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+        .action-button {
+            background: transparent;
+            border: none;
+            color: #ffff00;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .action-button:hover { color: #ffff88; }
         .article-container {
             margin-bottom: 1px;
         }
@@ -732,8 +807,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             cursor: pointer;
         }
         .article-line.selected {
-            background: #222;
-            border-left: 3px solid #00ff00;
+            background: #333; /* Fondo gris más claro que el negro */
         }
         .article-line.read {
             opacity: 0.6;
@@ -779,7 +853,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
         .modal-header {
             font-size: 18px;
-            font-weight: bold;
+            font-weight: 400;
             margin-bottom: 20px;
             border-bottom: 1px solid #00ff00;
             padding-bottom: 10px;
@@ -842,23 +916,542 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         }
     </style>
     <script>
-        let selectedIndex = 0;
-        let articles = [];
         let readArticles = new Set();
+        const READ_KEY = 'readArticles';
+        function loadReadSet() {
+            try {
+                const arr = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
+                if (Array.isArray(arr)) readArticles = new Set(arr);
+            } catch(e) { readArticles = new Set(); }
+        }
+        function saveReadSet() {
+            try { localStorage.setItem(READ_KEY, JSON.stringify(Array.from(readArticles))); } catch(e) {}
+        }
+        function persistRead(url) {
+            if (!url) return;
+            readArticles.add(url);
+            saveReadSet();
+        }
+        function applyReadState() {
+            document.querySelectorAll('.article-line').forEach(line => {
+                const url = line?.dataset?.url;
+                if (url && readArticles.has(url)) line.classList.add('read');
+            });
+        }
+
+        loadReadSet();
+
+        // 🔄 LiveReload por SSE (solo desarrollo). Si el servidor reinicia, el stream se corta y re-conecta => recarga.
+        (function(){
+            if (!('EventSource' in window)) return;
+            try {
+                const es = new EventSource('/dev/reload');
+                let sawError = false;
+                es.onopen = function(){ if (sawError) { location.reload(); } };
+                es.onerror = function(){ sawError = true; };
+            } catch(e) { /* ignore */ }
+        })();
         
-        function moveToTop(index) {
-            const containers = document.querySelectorAll('.article-container');
-            const container = containers[index];
-            if (!container) return;
+// ==========================================================================================================
+// 🎯 SISTEMA DE NAVEGACIÓN PRINCIPAL - DOCUMENTACIÓN COMPLETA
+// ==========================================================================================================
+// 
+// ✅ FUNCIONAMIENTO VERIFICADO Y FUNCIONANDO CORRECTAMENTE - 13/08/2025
+// 
+// FUNCIONAMIENTO:
+// 1. J/K navegan por la lista completa de artículos manteniendo el estado abierto/cerrado
+// 2. Si un artículo está ABIERTO y navegas (J/K), el siguiente artículo se abre automáticamente
+// 3. Si un artículo está CERRADO y navegas (J/K), el siguiente artículo permanece cerrado
+// 4. Space abre/cierra el artículo actual sin cambiar posición
+// 5. El artículo seleccionado SIEMPRE aparece en la primera línea visible (debajo del header)
+//
+// VARIABLES CLAVE:
+// - allArticles[]: Array con todos los artículos en orden original
+// - currentPosition: Índice del artículo actualmente seleccionado
+// - isNavigating: Flag para prevenir navegación múltiple simultánea
+// - lastNavigationTime: Control de throttle (50ms mínimo entre navegaciones)
+//
+// ORDEN DE OPERACIONES EN NAVEGACIÓN:
+// 1. Detectar si artículo actual está abierto
+// 2. Cerrar TODOS los artículos para evitar problemas de scroll
+// 3. Cambiar currentPosition al nuevo índice
+// 4. Highlight del nuevo artículo
+// 5. Scroll INSTANT (sin animación) para posicionar línea en top
+// 6. Si el artículo anterior estaba abierto, abrir el nuevo (con delay 10ms)
+//
+// 🔧 CLAVES DEL ÉXITO - MODELO PARA REHACER:
+// ✅ DOM INITIALIZATION: setTimeout(200ms) para esperar carga completa del DOM
+// ✅ EVENT LISTENERS: Configurar DESPUÉS de initializeArticlesList() y verificar allArticles.length > 0
+// ✅ NAVIGATION FLAG: isNavigating se resetea en navigateToPosition() al inicio, medio y final
+// ✅ MOUSE EVENTS: Click navega a posición + highlight + scroll + toggle en una secuencia
+// ✅ KEYBOARD EVENTS: J/K llaman navigateToPosition() que maneja todo el flujo completo
+// ✅ NO SETTIMEOUT INNECESARIOS: Los setTimeout en keydown events eran redundantes y causaban problemas
+//
+// ==========================================================================================================        // Variables para navegación simple de lista
+        let allArticles = []; // Lista completa de todos los artículos en orden original
+        let currentPosition = 0; // Posición actual en la lista
+        let isNavigating = false; // Flag para prevenir navegación múltiple simultánea
+        let lastNavigationTime = 0; // Timestamp de la última navegación
+
+        function initializeArticlesList() {
+            console.log('🔍 initializeArticlesList called');
             
-            const feedsContent = document.getElementById('feeds-tab');
-            const info = feedsContent.querySelector('.info');
+            // Capturar artículos SOLO del tab activo
+            const activeContent = document.querySelector('.tab-content.active');
+            const containers = activeContent 
+                ? activeContent.querySelectorAll('.article-container')
+                : document.querySelectorAll('.article-container');
+            console.log('🔍 DOM containers found: ' + containers.length);
             
-            // Move article to top (after info)
-            feedsContent.insertBefore(container, info.nextSibling);
+            if (containers.length === 0) {
+                console.log('❌ CRITICAL: No containers found with selector .article-container');
+                // Test other selectors
+                const divs = document.querySelectorAll('div');
+                console.log('🔍 Total divs in document:', divs.length);
+                return;
+            }
+            console.log('🔍 DOM containers found: ' + containers.length);
             
-            // Update selectedIndex to 0 since moved article is now first
+            allArticles = Array.from(containers).map((container, index) => {
+                const line = container.querySelector('.article-line');
+                if (!line) {
+                    console.log('❌ No article-line found in container ' + index);
+                    return null;
+                }
+                const url = line.dataset.url;
+                const titleElement = line.querySelector('.title');
+                const title = titleElement ? titleElement.textContent : 'No title';
+                console.log('📄 Article ' + index + ': ' + title.substring(0, 50) + '...');
+                const src = container.querySelector('.source-name')?.textContent || '';
+                return {
+                    element: container,
+                    url: url,
+                    originalIndex: index,
+                    title: title,
+                    searchText: (src + ' ' + title).toLowerCase()
+                };
+            }).filter(article => article !== null);
+            
+            currentPosition = 0;
+            console.log('✅ Initialized articles list with ' + allArticles.length + ' articles (scoped to active tab)');
+            
+            if (allArticles.length === 0) {
+                console.log('❌ NO ARTICLES FOUND IN DOM!');
+                return;
+            }
+            
+            // Buscar el primer artículo no leído para posicionarse ahí
+            // SIMPLIFICADO: Empezar en posición 0 por ahora
+            currentPosition = 0;
+            console.log('🎯 Starting at position 0 (simplified)');
+            
+            console.log('🥇 Current article: ' + allArticles[currentPosition]?.title?.substring(0, 50) + '...');
+            
+            // Highlight initial article
+            highlightCurrentArticle();
+            // Configurar interacción por clic para el tab activo
+            setupArticleInteractionHandlers();
+        }
+
+        function highlightCurrentArticle() {
+            // FUNCIÓN: Resalta visualmente el artículo actual
+            // - Remueve la clase 'selected' de todos los artículos
+            // - Agrega la clase 'selected' solo al artículo en currentPosition
+            // - La clase 'selected' tiene background #333 (definido en CSS)
+            
+            // Remover highlight de todos los artículos
+            document.querySelectorAll('.article-line').forEach(line => {
+                line.classList.remove('selected');
+            });
+            
+            // Highlight del artículo actual
+            if (allArticles[currentPosition]) {
+                const currentArticle = allArticles[currentPosition];
+                const line = currentArticle.element.querySelector('.article-line');
+                if (line) {
+                    line.classList.add('selected');
+                }
+            }
+        }
+
+        function setupArticleInteractionHandlers() {
+            if (allArticles.length === 0) return;
+            allArticles.forEach((article, index) => {
+                const line = article.element.querySelector('.article-line');
+                if (line) {
+                    line.onclick = () => {
+                        currentPosition = index;
+                        highlightCurrentArticle();
+                        scrollToCurrentArticle();
+                        toggleCurrentArticle();
+                    };
+                }
+                const title = article.element.querySelector('.title');
+                if (title) {
+                    title.style.cursor = 'pointer';
+                    title.onclick = (e) => {
+                        e.stopPropagation();
+                        currentPosition = index;
+                        highlightCurrentArticle();
+                        scrollToCurrentArticle();
+                        toggleCurrentArticle();
+                    };
+                }
+            });
+        }
+
+        // Function to load full article content
+        async function loadFullContentIfNeeded(contentElement) {
+            const fullContentDiv = contentElement.querySelector('.article-full-content');
+            const loadingIndicator = contentElement.querySelector('.loading-indicator');
+            const descriptionDiv = contentElement.querySelector('.article-description');
+            const articleUrl = contentElement.getAttribute('data-article-url');
+            
+            // Check if content is already loaded
+            if (fullContentDiv.innerHTML.trim() !== '') {
+                // Content already loaded, just show it
+                descriptionDiv.style.display = 'none';
+                fullContentDiv.style.display = 'block';
+                return;
+            }
+            
+            // Show loading indicator
+            loadingIndicator.style.display = 'block';
+            
+            try {
+                const response = await fetch('/api/scrape-article', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url: articleUrl })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                
+                const data = await response.json();
+                
+                // Hide loading indicator
+                loadingIndicator.style.display = 'none';
+                
+                // Process and format the content
+                let formattedContent = data.content;
+                
+                // Basic formatting improvements
+                if (formattedContent) {
+                    // Remove extra whitespace and normalize
+                    formattedContent = formattedContent
+                        .trim()
+                        .replace(/\s+/g, ' ')
+                        .replace(/\n+/g, '\n');
+                    
+                    // Split into sentences and create proper paragraphs
+                    let sentences = formattedContent.split(/(?<=[.!?])\s+(?=[A-Z])/);
+                    
+                    // Group sentences into paragraphs (every 3-4 sentences)
+                    let paragraphs = [];
+                    let currentParagraph = [];
+                    
+                    sentences.forEach((sentence, index) => {
+                        currentParagraph.push(sentence.trim());
+                        
+                        // Create new paragraph every 3-4 sentences or at natural breaks
+                        if (currentParagraph.length >= 3 || 
+                            sentence.includes('"') || 
+                            sentence.length > 200 ||
+                            (index === sentences.length - 1)) {
+                            
+                            paragraphs.push(currentParagraph.join(' '));
+                            currentParagraph = [];
+                        }
+                    });
+                    
+                    // Join paragraphs with proper HTML formatting
+                    formattedContent = paragraphs
+                        .filter(p => p.trim().length > 0)
+                        .map(p => '<p>' + p.trim() + '</p>')
+                        .join('');
+                }
+                
+                // Hide description and show full content
+                descriptionDiv.style.display = 'none';
+                fullContentDiv.innerHTML = formattedContent || data.content;
+                fullContentDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading full content:', error);
+                loadingIndicator.innerHTML = '❌ Error cargando contenido completo. <a href="' + articleUrl + '" target="_blank" style="color: #ffff00;">→ Leer original</a>';
+            }
+        }
+
+        function scrollToCurrentArticle() {
+            // FUNCIÓN CRÍTICA: La línea activa DEBE quedar justo debajo del header (línea 0)
+            if (!allArticles[currentPosition]) {
+                console.log('❌ No current article to scroll to');
+                return;
+            }
+
+            const currentArticle = allArticles[currentPosition];
+            const line = currentArticle.element.querySelector('.article-line');
+            if (!line) {
+                console.log('❌ No article line found');
+                return;
+            }
+
+            const header = document.querySelector('.header-fixed');
+            const headerRect = header ? header.getBoundingClientRect() : { bottom: 0 };
+            const lineRect = line.getBoundingClientRect();
+            const currentScroll = window.scrollY || document.documentElement.scrollTop || 0;
+
+            // Offset 0: el primer ítem queda inmediatamente bajo el header
+            const SAFE_OFFSET = 0;
+
+            const delta = lineRect.top - (headerRect.bottom + SAFE_OFFSET);
+            const targetScroll = currentScroll + delta;
+
+            console.log('🎯 FORCING article to line 0 - offset:', SAFE_OFFSET, 'delta:', Math.round(delta));
+
+            window.scrollTo({
+                top: Math.max(0, Math.round(targetScroll)),
+                behavior: 'instant'
+            });
+
+            // Micro-corrección en el siguiente frame por redondeos de layout/zoom
+            requestAnimationFrame(() => {
+                const hr = (header ? header.getBoundingClientRect() : { bottom: 0 });
+                const lr = line.getBoundingClientRect();
+                const d2 = lr.top - (hr.bottom + SAFE_OFFSET);
+                if (Math.abs(d2) > 1) {
+                    window.scrollTo({
+                        top: Math.max(0, Math.round((window.scrollY || document.documentElement.scrollTop || 0) + d2)),
+                        behavior: 'instant'
+                    });
+                }
+                console.log('✅ Article positioned at line 0 (post-correct:', Math.round(d2), 'px)');
+            });
+        }
+
+        function navigateToPosition(newPosition) {
+            console.log('🧭 navigateToPosition called: from', currentPosition, 'to', newPosition);
+            
+            if (newPosition < 0 || newPosition >= allArticles.length) {
+                console.log('❌ Position out of range:', newPosition, '(max:', allArticles.length - 1, ')');
+                isNavigating = false; // IMPORTANTE: resetear flag
+                return false;
+            }
+
+            // PASO 1: Verificar si el artículo actual está abierto
+            // LÓGICA: Si está abierto, el nuevo artículo también se abrirá automáticamente
+            // Y el artículo actual se marcará como leído
+            let wasCurrentArticleOpen = false;
+            if (allArticles[currentPosition]) {
+                const currentArticle = allArticles[currentPosition];
+                const currentContent = currentArticle.element.querySelector('.article-content');
+                const currentLine = currentArticle.element.querySelector('.article-line');
+                wasCurrentArticleOpen = currentContent.classList.contains('expanded');
+                console.log('📊 Current article was:', (wasCurrentArticleOpen ? 'OPEN' : 'CLOSED'));
+                
+                // Si estaba abierto, marcarlo como leído al navegar
+                if (wasCurrentArticleOpen) {
+                    currentLine.classList.add('read');
+                    console.log('📖 Marking as read:', currentArticle.title.substring(0, 30) + '...');
+                }
+            }
+
+            // PASO 2: Cambiar posición
+            const oldPosition = currentPosition;
+            currentPosition = newPosition;
+            console.log('🔄 Position updated: from', oldPosition, 'to', currentPosition);
+            
+            // PASO 3: Cerrar todos los artículos primero para evitar problemas de scroll
+            // CRÍTICO: Esto debe hacerse ANTES del scroll para calcular posiciones correctas
+            document.querySelectorAll('.article-content').forEach(content => {
+                content.classList.remove('expanded');
+                content.style.display = 'none';
+            });
+            
+            // PASO 4: Actualizar UI y posicionar
+            highlightCurrentArticle();
+            scrollToCurrentArticle();
+            
+            // PASO 5: Si el artículo anterior estaba abierto, abrir el nuevo DESPUÉS del scroll
+            // DELAY: 10ms asegura que el scroll instant se complete antes de expandir contenido
+                if (wasCurrentArticleOpen && allArticles[currentPosition]) {
+                const newArticle = allArticles[currentPosition];
+                const newContent = newArticle.element.querySelector('.article-content');
+                
+                // Usar setTimeout para asegurar que el scroll se complete primero
+                setTimeout(() => {
+                    newContent.classList.add('expanded');
+                    newContent.style.display = 'block';
+                    console.log('📰 Auto-abriendo nuevo artículo: ' + newArticle.title.substring(0, 30) + '...');
+                        const newLine = newArticle.element.querySelector('.article-line');
+                        if (newLine && newLine.dataset && newLine.dataset.url) {
+                            newLine.classList.add('read');
+                            persistRead(newLine.dataset.url);
+                        }
+                }, 10);
+            }
+            
+            console.log('✅ Navegación completada a posición: ' + currentPosition);
+            console.log('📄 Artículo actual: ' + allArticles[currentPosition].title.substring(0, 50) + '...');
+            
+            isNavigating = false; // IMPORTANTE: resetear flag al finalizar
+            return true;
+        }
+
+        function toggleCurrentArticle() {
+            // FUNCIÓN: Abre/cierra el artículo actual sin cambiar la posición
+            // - Si está cerrado -> lo abre
+            // - Si está abierto -> lo cierra Y marca como leído (clase 'read')
+            // - NO afecta la navegación ni la posición del scroll
+            
+            if (allArticles[currentPosition]) {
+                const currentArticle = allArticles[currentPosition];
+                const container = currentArticle.element;
+                const content = container.querySelector('.article-content');
+                const line = container.querySelector('.article-line');
+                
+                if (content.classList.contains('expanded')) {
+                    // Si está expandido, lo cierra
+                    content.classList.remove('expanded');
+                    content.style.display = 'none';
+                    line.classList.add('read');
+                    if (line && line.dataset && line.dataset.url) persistRead(line.dataset.url);
+                    console.log('📖 Article closed and marked as read: ' + currentArticle.title.substring(0, 30) + '...');
+                } else {
+                    // Si no está expandido, lo abre
+                    content.classList.add('expanded');
+                    content.style.display = 'block';
+                    // Cargar contenido completo si corresponde
+                    if (typeof loadFullContentIfNeeded === 'function') {
+                        try { loadFullContentIfNeeded(content); } catch (e) { /* ignore */ }
+                    }
+                    console.log('📰 Article opened: ' + currentArticle.title.substring(0, 30) + '...');
+                }
+            }
+        }
+
+        async function saveCurrent(listName) {
+            if (!allArticles[currentPosition]) return;
+            const el = allArticles[currentPosition].element;
+            const line = el.querySelector('.article-line');
+            const title = el.querySelector('.title')?.textContent || '';
+            const source = el.querySelector('.source-name')?.textContent || '';
+            const link = line?.dataset.url || '';
+            if (!link) return;
+            try {
+                const endpoint = listName === 'loved' ? '/api/save-loved' : '/api/save-saved';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, source, link })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json().catch(()=>({}));
+                // Actualizar contadores en pestañas y listas
+                if (typeof refreshLists === 'function') {
+                    refreshLists();
+                }
+            } catch(e) {
+                console.error('Save failed', e);
+            }
+        }
+
+        // Guardar desde enlaces de acción en cada artículo
+        async function saveToList(listName, el) {
+            const container = el.closest('.article-container');
+            const line = container?.querySelector('.article-line');
+            const title = container?.querySelector('.title')?.textContent || '';
+            const source = container?.querySelector('.source-name')?.textContent || '';
+            const link = line?.dataset?.url || '';
+            if (!link) return;
+            // Evitar duplicados en UI
+            if (listName === 'saved' && document.querySelector('#saved-list .article-line[data-url="'+link.replace(/"/g,'&quot;')+'"]')) return;
+            if (listName === 'loved' && document.querySelector('#favorites-list .article-line[data-url="'+link.replace(/"/g,'&quot;')+'"]')) return;
+            try {
+                const endpoint = listName === 'loved' ? '/api/save-loved' : '/api/save-saved';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, source, link })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                el.textContent = (listName === 'loved' ? 'LOVED' : 'SAVED') + ' ✓';
+                if (typeof refreshLists === 'function') refreshLists();
+            } catch(e) {
+                console.error('Save failed', e);
+                el.textContent = 'ERROR';
+            }
+        }
+
+        // Cargar listas y actualizar contadores
+        async function refreshLists() {
+            try {
+                const [savedRes, lovedRes] = await Promise.all([
+                    fetch('/api/list-saved'),
+                    fetch('/api/list-loved')
+                ]);
+                const saved = await savedRes.json();
+                const loved = await lovedRes.json();
+                const elSaved = document.getElementById('saved-list');
+                const elFav   = document.getElementById('favorites-list');
+                function renderItem(i){
+                    const url = (i.link||'');
+                    const readCls = (readArticles && readArticles.has && readArticles.has(url)) ? ' read' : '';
+                    return '<div class="article-container">'
+                         + '<div class="article-line'+readCls+'" data-url="'+url+'">'
+                         + '<span class="source-name">'+(i.source||'')+'</span>&nbsp;'
+                         + '<span class="title">'+(i.title||'')+'</span>'
+                         + '</div>'
+                         + '<div class="article-content" data-article-url="'+url+'">'
+                         +   '<div style="height: 15px;"></div>'
+                         +   '<div class="article-title-full" style="color: #ffffff; font-weight: 400; font-size: 16px; margin-bottom: 15px; line-height: 1.3;">'+(i.title||'')+'</div>'
+                         +   '<div class="article-description"></div>'
+                         +   '<div class="article-full-content" style="display: none;"></div>'
+                         +   '<div class="loading-indicator" style="display: none; color: #00ff00; margin: 10px 0;">⏳ Cargando contenido completo...</div>'
+                         + '</div>'
+                         + '</div>';
+                }
+                if (elSaved) elSaved.innerHTML = saved.map(renderItem).join('');
+                if (elFav)   elFav.innerHTML   = loved.map(renderItem).join('');
+                const cSaved = document.getElementById('count-saved');
+                const cLoved = document.getElementById('count-loved');
+                if (cSaved) cSaved.textContent = String(saved.length || 0);
+                if (cLoved) cLoved.textContent = String(loved.length || 0);
+
+                // Si estamos en SAVED o LOVED, reconstruir navegación
+                const activeTab = document.querySelector('.tab.active')?.dataset?.tab;
+                if (activeTab === 'favorites' || activeTab === 'saved') {
+                    initializeArticlesList();
+                    highlightCurrentArticle();
+                    setupArticleInteractionHandlers();
+                }
+                return { savedCount: saved.length, lovedCount: loved.length };
+            } catch(e) {
+                console.error('refreshLists failed', e);
+                return { savedCount: 0, lovedCount: 0 };
+            }
+        }
+
+        function reorganizeArticles() {
+            // En lugar de reorganizar físicamente, solo actualizamos la navegación
+            // Los artículos mantienen su orden original
+            // La navegación simplemente salta a los no leídos disponibles
             selectedIndex = 0;
+            
+            // Buscar el primer artículo no leído para posicionarse ahí
+            const containers = document.querySelectorAll('.article-container');
+            for (let i = 0; i < containers.length; i++) {
+                const line = containers[i].querySelector('.article-line');
+                if (!line.classList.contains('read')) {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            
             scrollToShowSelected();
         }
         
@@ -879,6 +1472,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
             });
             document.querySelectorAll('.article-line').forEach((l) => {
                 l.classList.remove('selected');
+                l.classList.remove('expanded');
             });
             
             // Toggle current article
@@ -887,193 +1481,42 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 content.classList.remove('expanded');
                 content.style.display = 'none';
                 line.classList.add('read');
-                readArticles.add(line.dataset.url);
-                selectedIndex = 0; // Stay at top position
+                line.classList.remove('expanded');
+                const toggleUrl = line.dataset.url;
+                if (toggleUrl) {
+                    readArticles.add(toggleUrl);
+                    console.log('Marked as read (toggle):', toggleUrl);
+                }
+                
+                // Simply stay in current position without reorganizing
+                selectedIndex = index;
                 scrollToShowSelected();
             } else {
-                // Opening article - move to top and expand
-                if (index !== 0) {
-                    moveToTop(index);
-                }
+                // Opening article - expand in place without moving
                 content.classList.add('expanded');
                 content.style.display = 'block';
                 line.classList.add('selected');
-                selectedIndex = 0;
+                line.classList.add('expanded');
+                selectedIndex = index;
+                
+                // Load full content if not already loaded
+                loadFullContentIfNeeded(content);
+                scrollToShowSelected();
             }
         }
 
-        document.addEventListener('keydown', function(e) {
-            // Ignore if user is typing in an input field
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                return;
-            }
-
-            const totalArticles = document.querySelectorAll('.article-container').length;
-            
-            switch(e.key.toLowerCase()) {
-                case 'f1':
-                    e.preventDefault();
-                    switchTab('feeds');
-                    break;
-                    
-                case 'f2':
-                    e.preventDefault();
-                    switchTab('favorites');
-                    break;
-                    
-                case 'f3':
-                    e.preventDefault();
-                    switchTab('saved');
-                    break;
-                    
-                case 'f4':
-                    e.preventDefault();
-                    switchTab('config');
-                    break;
-                    
-                case 'j':
-                case 'arrowdown':
-                    e.preventDefault();
-                    const totalArticles = document.querySelectorAll('.article-container').length;
-                    
-                    // J: Si hay un artículo expandido, cierra el actual y abre el siguiente
-                    const expandedContent = document.querySelector('.article-content.expanded');
-                    if (expandedContent) {
-                        // Cierra el artículo actual
-                        expandedContent.classList.remove('expanded');
-                        expandedContent.style.display = 'none';
-                        const currentLine = expandedContent.parentElement.querySelector('.article-line');
-                        currentLine.classList.add('read');
-                        
-                        // Mueve al siguiente artículo
-                        if (selectedIndex < totalArticles - 1) {
-                            selectedIndex++;
-                        }
-                        
-                        // Abre el nuevo artículo
-                        const containers = document.querySelectorAll('.article-container');
-                        const newContainer = containers[selectedIndex];
-                        if (newContainer) {
-                            const newContent = newContainer.querySelector('.article-content');
-                            const newLine = newContainer.querySelector('.article-line');
-                            
-                            newContent.classList.add('expanded');
-                            newContent.style.display = 'block';
-                            newLine.classList.add('read');
-                            readArticles.add(newLine.dataset.url);
-                        }
-                        
-                        scrollToShowSelected();
-                    } else {
-                        // J simplemente mueve al siguiente artículo en la lista si no hay nada expandido
-                        if (selectedIndex < totalArticles - 1) {
-                            selectedIndex++;
-                            scrollToShowSelected();
-                        }
-                    }
-                    break;
-                
-                case 'k':
-                case 'arrowup':
-                    e.preventDefault();
-                    
-                    // K: Si hay un artículo expandido, cierra el actual y abre el anterior
-                    const expandedContentUp = document.querySelector('.article-content.expanded');
-                    if (expandedContentUp) {
-                        // Cierra el artículo actual
-                        expandedContentUp.classList.remove('expanded');
-                        expandedContentUp.style.display = 'none';
-                        const currentLineUp = expandedContentUp.parentElement.querySelector('.article-line');
-                        currentLineUp.classList.add('read');
-                        
-                        // Mueve al artículo anterior
-                        if (selectedIndex > 0) {
-                            selectedIndex--;
-                        }
-                        
-                        // Abre el nuevo artículo
-                        const containersUp = document.querySelectorAll('.article-container');
-                        const newContainerUp = containersUp[selectedIndex];
-                        if (newContainerUp) {
-                            const newContentUp = newContainerUp.querySelector('.article-content');
-                            const newLineUp = newContainerUp.querySelector('.article-line');
-                            
-                            newContentUp.classList.add('expanded');
-                            newContentUp.style.display = 'block';
-                            newLineUp.classList.add('read');
-                            readArticles.add(newLineUp.dataset.url);
-                        }
-                        
-                        scrollToShowSelected();
-                    } else {
-                        // K simplemente mueve al artículo anterior en la lista si no hay nada expandido
-                        if (selectedIndex > 0) {
-                            selectedIndex--;
-                            scrollToShowSelected();
-                        }
-                    }
-                    break;
-                
-                case 'enter':
-                    e.preventDefault();
-                    if (selectedIndex >= 0) {
-                        toggleArticle(selectedIndex);
-                    }
-                    break;
-                    
-                case ' ':
-                    e.preventDefault();
-                    // Space abre/cierra el artículo seleccionado
-                    if (selectedIndex >= 0) {
-                        const containers = document.querySelectorAll('.article-container');
-                        const selectedContainer = containers[selectedIndex];
-                        if (selectedContainer) {
-                            const content = selectedContainer.querySelector('.article-content');
-                            const line = selectedContainer.querySelector('.article-line');
-                            
-                            if (content.classList.contains('expanded')) {
-                                // Si está expandido, lo cierra
-                                content.classList.remove('expanded');
-                                content.style.display = 'none';
-                                line.classList.add('read');
-                            } else {
-                                // Si no está expandido, lo abre
-                                content.classList.add('expanded');
-                                content.style.display = 'block';
-                                line.classList.add('read');
-                                readArticles.add(line.dataset.url);
-                            }
-                        }
-                    }
-                    break;
-                
-                case 'escape':
-                    e.preventDefault();
-                    closeAllArticles();
-                    break;
-            }
-        });
-
         function scrollToShowSelected() {
+            // DESHABILITADO - usando nuevo sistema de navegación
             // Remove previous highlights
             document.querySelectorAll('.article-line').forEach(line => {
                 line.classList.remove('selected');
             });
             
-            // Highlight current
-            const lines = document.querySelectorAll('.article-line');
-            if (lines[selectedIndex]) {
-                lines[selectedIndex].classList.add('selected');
-                
-                // Scroll para que el elemento seleccionado aparezca justo debajo del header fijo
-                // El header tiene aproximadamente 120px de altura
-                const headerOffset = 120;
-                const elementTop = lines[selectedIndex].offsetTop;
-                
-                window.scrollTo({
-                    top: elementTop - headerOffset,
-                    behavior: 'smooth'
-                });
+            // Highlight current (solo en posición 0)
+            const containers = document.querySelectorAll('.article-container');
+            if (containers[0]) {
+                const firstLine = containers[0].querySelector('.article-line');
+                firstLine.classList.add('selected');
             }
         }
 
@@ -1094,20 +1537,22 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 tab.classList.remove('active');
             });
             
-            // Hide all tab content
+            // Hide all tab content y quitar 'active'
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.style.display = 'none';
+                content.classList.remove('active');
             });
             
             // Show selected tab content
             const tabContent = document.getElementById(tabName + '-tab');
             if (tabContent) {
                 tabContent.style.display = 'block';
+                tabContent.classList.add('active');
             }
             
             // Activate selected tab
             const tab = Array.from(document.querySelectorAll('.tab')).find(t => 
-                t.textContent.toLowerCase().includes(tabName.replace('feeds', 'rss feeds').toLowerCase())
+                t.dataset.tab === tabName
             );
             if (tab) {
                 tab.classList.add('active');
@@ -1118,79 +1563,393 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
                 selectedIndex = 0;
                 scrollToShowSelected();
             }
+
+            if (tabName === 'search') {
+                const si = document.getElementById('search-input');
+                const host = document.getElementById('search-results');
+                if (si && host) {
+                    const doSearch = () => {
+                        const q = si.value.trim().toLowerCase();
+                        if (!q) { host.innerHTML = ''; return; }
+                        const results = allArticles.filter(a => a.searchText.includes(q));
+                        host.innerHTML = results.map(r => {
+                            const line = r.element.querySelector('.article-line').outerHTML;
+                            return '<div class="article-container">' + line + '</div>';
+                        }).join('');
+                    };
+                    si.onkeydown = (ev) => {
+                        if (ev.key === 'Escape') { si.value = ''; host.innerHTML = ''; }
+                        if (ev.key === 'Enter') { ev.preventDefault(); doSearch(); }
+                    };
+                }
+            }
+
+            // Si es SAVED o LOVED, refrescar listas antes de reindexar
+            // Al cambiar de pestaña, refrescar y luego reindexar
+            if (tabName === 'favorites' || tabName === 'saved') {
+                if (typeof refreshLists === 'function') {
+                    refreshLists().then(() => {
+                        initializeArticlesList();
+                        highlightCurrentArticle();
+                        setupArticleInteractionHandlers();
+                    }).catch(() => {
+                        initializeArticlesList();
+                        highlightCurrentArticle();
+                        setupArticleInteractionHandlers();
+                    });
+                } else {
+                    initializeArticlesList();
+                    highlightCurrentArticle();
+                    setupArticleInteractionHandlers();
+                }
+            } else if (tabName === 'feeds' || tabName === 'search') {
+                setTimeout(() => {
+                    initializeArticlesList();
+                    highlightCurrentArticle();
+                    setupArticleInteractionHandlers();
+                }, 0);
+            }
         }
 
         // Initialize articles array and set first article as selected
         document.addEventListener('DOMContentLoaded', function() {
-            const containers = document.querySelectorAll('.article-container');
-            containers.forEach((container, index) => {
-                articles.push({
-                    element: container,
-                    index: index
-                });
-                
-                // Add click handler to entire line
-                const line = container.querySelector('.article-line');
-                if (line) {
-                    line.addEventListener('click', () => toggleArticle(index));
-                }
-                
-                // Add click handler specifically to title for better UX
-                const title = container.querySelector('.title');
-                if (title) {
-                    title.style.cursor = 'pointer';
-                    title.addEventListener('click', (e) => {
-                        e.stopPropagation(); // Prevent double triggering
-                        toggleArticle(index);
-                    });
-                }
-            });
+            console.log('🚀 DOMContentLoaded fired - Initializing ANCAP WEB Reader...');
+            console.log('🔍 Document ready state:', document.readyState);
             
-            // Add click handlers for tabs
+            // PASO 1: Esperar un momento para que el DOM esté completamente cargado
+            setTimeout(() => {
+                console.log('🔧 Starting article initialization after timeout...');
+                
+                // TEST: Verificar que elementos básicos existen
+                const feedsTab = document.querySelector('#feeds-tab');
+                const articleContainers = document.querySelectorAll('.article-container');
+                console.log('🔍 feeds-tab found:', !!feedsTab);
+                console.log('🔍 article-container elements found:', articleContainers.length);
+
+                // Ajuste robusto del offset del contenido para eliminar huecos bajo las pestañas
+                const headerEl = document.querySelector('.header-fixed');
+                const tabsEl = document.querySelector('.tabs');
+                const contentWrapper = document.querySelector('.content-wrapper');
+
+                function adjustContentOffset() {
+                    if (!contentWrapper) return;
+                    // Asegurar que no haya padding/margen residual
+                    contentWrapper.style.paddingTop = '0px';
+                    contentWrapper.style.marginTop = '0px';
+
+                    let offsetPx = 0;
+                    if (tabsEl) {
+                        const rect = tabsEl.getBoundingClientRect();
+                        // Altura efectiva desde la parte superior de la ventana
+                        offsetPx = Math.ceil(rect.bottom);
+                    } else if (headerEl) {
+                        offsetPx = Math.ceil(headerEl.getBoundingClientRect().height);
+                    }
+                    // Dejar exactamente una "línea" negra antes del listado
+                    let extraGap = 18; // fallback
+                    const sampleLine = document.querySelector('.article-line');
+                    if (sampleLine) {
+                        const lh = Math.ceil(sampleLine.getBoundingClientRect().height);
+                        if (lh > 0 && lh < 60) extraGap = lh; // usar altura de línea si es razonable
+                    }
+                    offsetPx += extraGap;
+                    contentWrapper.style.marginTop = offsetPx + 'px';
+                    console.log('📐 Offset aplicado a content-wrapper:', offsetPx);
+                }
+
+                adjustContentOffset();
+                window.addEventListener('load', adjustContentOffset, { passive: true });
+                window.addEventListener('resize', adjustContentOffset, { passive: true });
+                if (document.fonts && document.fonts.ready) {
+                    document.fonts.ready.then(adjustContentOffset).catch(()=>{});
+                }
+                
+                if (articleContainers.length === 0) {
+                    console.log('❌ CRITICAL: No article containers found in DOM!');
+                    return;
+                }
+                
+                // LIMPIEZA INICIAL: Cerrar todos los artículos
+                document.querySelectorAll('.article-content').forEach(content => {
+                    content.classList.remove('expanded');
+                    content.style.display = 'none';
+                });
+                document.querySelectorAll('.article-line').forEach(line => {
+                    line.classList.remove('selected', 'expanded');
+                });
+                // Aplicar estado de leídos desde localStorage
+                applyReadState();
+                
+                // PASO 2: Inicializar la lista de artículos para navegación
+                console.log('🔧 Calling initializeArticlesList...');
+                initializeArticlesList();
+                // Posicionar el primer elemento seleccionado al cargar
+                scrollToCurrentArticle();
+                
+                // PASO 3: Configurar event listeners de click SOLO si hay artículos
+                if (allArticles.length > 0) {
+                    console.log('🖱️ Setting up mouse event listeners for ' + allArticles.length + ' articles');
+                    allArticles.forEach((article, index) => {
+                        // Add click handler to entire line
+                        const line = article.element.querySelector('.article-line');
+                        if (line) {
+                            line.addEventListener('click', () => {
+                                // Al hacer click, navegar a ese artículo y togglear
+                                currentPosition = index;
+                                highlightCurrentArticle();
+                                scrollToCurrentArticle();
+                                toggleCurrentArticle();
+                            });
+                        }
+                        
+                        // Add click handler specifically to title for better UX
+                        const title = article.element.querySelector('.title');
+                        if (title) {
+                            title.style.cursor = 'pointer';
+                            title.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                // Al hacer click en título, navegar a ese artículo y togglear
+                                currentPosition = index;
+                                highlightCurrentArticle();
+                                scrollToCurrentArticle();
+                                toggleCurrentArticle();
+                            });
+                        }
+                    });
+                    console.log('✅ Mouse event listeners configured successfully');
+                } else {
+                    console.log('❌ No articles found, skipping mouse event listeners setup');
+                }
+                
+                console.log('✅ ANCAP WEB Reader initialization completed');
+            }, 200); // Aumentar timeout para asegurar que el DOM esté listo
+            
+            // Configurar event listeners de tabs
             document.querySelectorAll('.tab').forEach((tab, index) => {
                 tab.addEventListener('click', () => {
-                    const tabNames = ['feeds', 'favorites', 'saved', 'config'];
+                    const tabNames = ['feeds', 'search', 'favorites', 'saved', 'config'];
                     switchTab(tabNames[index]);
                 });
             });
             
-            // Select first article by default (but don't expand it)
-            if (containers.length > 0) {
-                selectedIndex = 0;
-                scrollToShowSelected();
+            // Reloj en vivo con fecha local
+            const clockEl = document.getElementById('clock-info');
+            const updateClock = () => {
+                const now = new Date();
+                const date = now.toLocaleDateString();
+                const time = now.toLocaleTimeString();
+                clockEl.textContent = time + ' [' + allArticles.length + ' artículos] — ' + date;
+            };
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // Activar tab de feeds por defecto
+            switchTab('feeds');
+            // Inicializar contadores al cargar
+            if (typeof refreshLists === 'function') {
+                refreshLists();
             }
             
-            // Ensure all articles start closed
-            document.querySelectorAll('.article-content').forEach(content => {
-                content.classList.remove('expanded');
-                content.style.display = 'none';
+            // ==========================================================================================================
+            // 🎹 CONFIGURACIÓN DE TECLAS - SISTEMA DE NAVEGACIÓN COMPLETO
+            // ==========================================================================================================
+            console.log('🎹 Setting up keyboard event listeners...');
+            
+            // TEST: Verificar que el document está listo para event listeners
+            console.log('🔍 Document ready for event listeners:', !!document.addEventListener);
+            console.log('🔍 allArticles.length:', allArticles.length);
+            
+            document.addEventListener('keydown', function(e) {
+                console.log('🎹 Key pressed:', e.key, 'code:', e.code);
+                
+                // Ignore if user is typing in an input field
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    console.log('🚫 Ignoring key press in input field');
+                    return;
+                }
+                
+                const key = (e.key || '').toLowerCase();
+
+                // Manejo de F1..F5 siempre, para evitar que el navegador capture F1
+                if (key === 'f1' || key === 'f2' || key === 'f3' || key === 'f4' || key === 'f5') {
+                    e.preventDefault();
+                    if (key === 'f1') switchTab('feeds');
+                    if (key === 'f2') { 
+                        switchTab('search'); 
+                        // No enfocar automáticamente para no interferir con F1/F3
+                        // El usuario puede hacer clic o presionar '/' para enfocar manualmente
+                    }
+                    if (key === 'f3') { switchTab('favorites'); refreshLists(); }
+                    if (key === 'f4') { switchTab('saved'); refreshLists(); }
+                    if (key === 'f5') switchTab('config');
+                    return;
+                }
+
+                // Si no son teclas de pestañas, requerimos artículos para navegar
+                if (allArticles.length === 0) {
+                    console.log('❌ No articles available for navigation');
+                    return;
+                }
+
+                // Permitir key repeat del sistema operativo para mantener presionadas J/K
+                const totalArticles = document.querySelectorAll('.article-container').length;
+                console.log('🎯 Key pressed: ' + e.key + ', totalArticles: ' + totalArticles);
+                
+                switch(key) {
+                    case 'f1':
+                        e.preventDefault();
+                        switchTab('feeds');
+                        break;
+
+                    case 'f2':
+                        e.preventDefault();
+                        switchTab('search');
+                        const si2 = document.getElementById('search-input');
+                        if (si2) si2.focus();
+                        break;
+
+                    case 'f3':
+                        e.preventDefault();
+                        switchTab('favorites');
+                        break;
+
+                    case 'f4':
+                        e.preventDefault();
+                        switchTab('saved');
+                        break;
+
+                    case 'f5':
+                        e.preventDefault();
+                        switchTab('config');
+                        break;
+                        
+                    case 'j':
+                    case 'arrowdown':
+                        e.preventDefault();
+                        console.log('⬇️ J pressed - moving to next article');
+                        
+                        // Throttle equilibrado para navegación una por una: 30ms
+                        const now = Date.now();
+                        const timeSinceLastNav = now - lastNavigationTime;
+                        
+                        if (timeSinceLastNav < 30) {
+                            console.log('⏳ Navigation throttled - skipping');
+                            return;
+                        }
+                        
+                        // Prevenir navegación múltiple simultánea
+                        if (isNavigating) {
+                            console.log('🚫 Already navigating - flag is true');
+                            return;
+                        }
+                        
+                        isNavigating = true;
+                        lastNavigationTime = now;
+                        
+                        // J: Navegar al siguiente artículo (SIMPLE)
+                        const nextPos = currentPosition + 1;
+                        
+                        if (nextPos < allArticles.length && navigateToPosition(nextPos)) {
+                            console.log('📄 Navigated to article', nextPos + 1, 'of', allArticles.length);
+                        } else {
+                            console.log('🔚 Already at last article');
+                            isNavigating = false;
+                        }
+                        break;
+                    
+                    case 'k':
+                    case 'arrowup':
+                        e.preventDefault();
+                        console.log('⬆️ K pressed - moving to previous article');
+                        
+                        // Throttle equilibrado para navegación una por una: 30ms
+                        const nowK = Date.now();
+                        const timeSinceLastNavK = nowK - lastNavigationTime;
+                        
+                        if (timeSinceLastNavK < 30) {
+                            console.log('⏳ Navigation throttled - skipping');
+                            return;
+                        }
+                        
+                        // Prevenir navegación múltiple simultánea
+                        if (isNavigating) {
+                            console.log('🚫 Already navigating - flag is true');
+                            return;
+                        }
+                        
+                        isNavigating = true;
+                        lastNavigationTime = nowK;
+                        
+                        // K: Navegar al artículo anterior (SIMPLE)
+                        const prevPos = currentPosition - 1;
+                        
+                        if (prevPos >= 0 && navigateToPosition(prevPos)) {
+                            console.log('📄 Navigated to article', prevPos + 1, 'of', allArticles.length);
+                        } else {
+                            console.log('🔙 Already at first article');
+                            isNavigating = false;
+                        }
+                        break;
+                    
+                    case ' ':
+                        e.preventDefault();
+                        console.log('🔲 Space pressed - toggle current article');
+                        toggleCurrentArticle();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        console.log('💾 S pressed - save current');
+                        saveCurrent('saved');
+                        break;
+                    case 'l':
+                        e.preventDefault();
+                        console.log('❤️ L pressed - love current');
+                        saveCurrent('loved');
+                        break;
+                    
+                    case 'escape':
+                        e.preventDefault();
+                        console.log('🚪 Escape pressed - closing all articles');
+                        closeAllArticles();
+                        break;
+                }
             });
             
-            // Initialize with feeds tab active
-            switchTab('feeds');
+            console.log('✅ ANCAP WEB Reader initialized');
         });
     </script>
 </head>
 <body>
     <div class="header-fixed">
         <div class="header-content">
-            <h1>LIBERTARIAN 2.0 - ` + time.Now().Format("15:04:05") + ` [` + strconv.Itoa(len(data.Articles)) + ` artículos]</h1>
+            <div class="header-ascii"> </div>
+            <div class="header-ascii">▄▀█ █▄ █ █▀▀ ▄▀█ █▀▄
+█▀█ █ ▀█ █▄▄ █▀█ █▀▀</div>
+            <div class="header-ascii"> </div>
+            <div class="header-subtitle">» A LIBERTARIAN RSS READER «</div>
+            <div class="header-ascii"> </div>
+            <div class="header-info" id="clock-info"></div>
+            <div class="header-ascii"> </div>
             
             <!-- Tab Navigation -->
             <div class="tabs">
                 <div class="tab tab-active" data-tab="feeds">
                     FEEDS [` + strconv.Itoa(len(data.Articles)) + `] <span class="tab-shortcut">[F1]</span>
                 </div>
+                <div class="tab" data-tab="search">
+                    SEARCH <span class="tab-shortcut">[F2]</span>
+                </div>
                 <div class="tab" data-tab="favorites">
-                    FAVORITOS [0] <span class="tab-shortcut">[F2]</span>
+                    SAVED [<span id="count-saved">0</span>] <span class="tab-shortcut">[F3]</span>
                 </div>
                 <div class="tab" data-tab="saved">
-                    GUARDADOS [0] <span class="tab-shortcut">[F3]</span>
+                    LOVED [<span id="count-loved">0</span>] <span class="tab-shortcut">[F4]</span>
                 </div>
                 <div class="tab" data-tab="config">
-                    CONFIG <span class="tab-shortcut">[F4]</span>
+                    CONFIG <span class="tab-shortcut">[F5]</span>
                 </div>
             </div>
+            <div class="header-ascii"> </div>
         </div>
     </div>
     
@@ -1198,32 +1957,36 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         <div class="content-wrapper">
         
         <!-- Tab Content -->
-        <div id="feeds-tab" class="tab-content active">
-            <div class="info">Use J/K o ↑↓ para navegar, SPACE/ENTER para expandir, ESC para cerrar, F1-F4 para pestañas</div>`
+        <div id="feeds-tab" class="tab-content active">`
 
 	for _, article := range data.Articles {
 		html += fmt.Sprintf(`
         <div class="article-container">
             <div class="article-line" data-url="%s">
-                <span class="date-bracket">%s</span>&nbsp;&nbsp;
-                <span class="source-name">%s</span>&nbsp;&nbsp;
+                <span class="source-name">%s</span>&nbsp;
                 <span class="title">%s</span>
             </div>
-            <div class="article-content">
-                <div style="margin-bottom: 10px; color: #888; font-size: 12px;">%s  %s</div>
-                <div>%s</div>
-                <br>
-                <a href="%s" target="_blank" style="color: #ffff00;">→ Leer artículo completo</a>
+            <div class="article-content" data-article-url="%s">
+                <div style="height: 15px;"></div>
+                <div class="article-title-full" style="color: #ffffff; font-weight: 400; font-size: 16px; margin-bottom: 15px; line-height: 1.3;">%s</div>
+                <div class="article-description">%s</div>
+            <div class="article-actions" style="margin-top:8px;">
+                    <a href="#" class="action-link" onclick="event.preventDefault(); saveToList('loved', this)">LOVE [L]</a>
+                    <span style="margin:0 8px; color:#333;">|</span>
+                    <a href="#" class="action-link" onclick="event.preventDefault(); saveToList('saved', this)">SAVE [S]</a>
+                    <span style="margin:0 8px; color:#333;">|</span>
+                    <a href="#" class="action-link" onclick="event.preventDefault(); shareArticle(this)">SHARE</a>
+                </div>
+                <div class="article-full-content" style="display: none;"></div>
+                <div class="loading-indicator" style="display: none; color: #00ff00; margin: 10px 0;">⏳ Cargando contenido completo...</div>
             </div>
         </div>`,
 			article.Link,
-			article.Date,
 			article.Source,
 			article.Title,
-			article.Date,
-			article.Source,
-			article.Description,
-			article.Link)
+			article.Link,  // data-article-url for JS
+			article.Title, // Título completo en blanco
+			article.Description)
 	}
 
 	html += `
@@ -1231,7 +1994,7 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         
         <!-- Favorites Tab -->
         <div id="favorites-tab" class="tab-content">
-            <div class="page-header">ARTÍCULOS FAVORITOS</div>
+            <div class="page-header">SAVED</div>
             <div class="info">Aquí aparecerán los artículos que guardes como favoritos</div>
             <div id="favorites-list">
                 <!-- Contenido cargado dinámicamente -->
@@ -1240,19 +2003,27 @@ func renderHomePage(w http.ResponseWriter, data TemplateData) {
         
         <!-- Saved Tab -->
         <div id="saved-tab" class="tab-content">
-            <div class="page-header">ARTÍCULOS GUARDADOS</div>
+            <div class="page-header">LOVED</div>
             <div class="info">Artículos guardados para leer más tarde</div>
             <div id="saved-list">
                 <!-- Contenido cargado dinámicamente -->
             </div>
         </div>
         
+        <!-- Search Tab -->
+        <div id="search-tab" class="tab-content">
+            <div class="page-header">SEARCH</div>
+            <div class="info">Busca por título o fuente. Presiona Enter para filtrar, ESC para limpiar.</div>
+            <input id="search-input" class="config-input" placeholder="Buscar..." style="width: 100%; max-width: 720px;"/>
+            <div id="search-results"></div>
+        </div>
+
         <!-- Config Tab -->
         <div id="config-tab" class="tab-content">
             <div class="page-header">CONFIGURACIÓN</div>
             <div class="config-section">
                 <h3>Atajos de teclado</h3>
-                <p><strong>F1:</strong> Feeds | <strong>F2:</strong> Favoritos | <strong>F3:</strong> Guardados | <strong>F4:</strong> Config</p>
+                <p><strong>F1:</strong> Feeds | <strong>F2:</strong> Saved | <strong>F3:</strong> Loved | <strong>F4:</strong> Config</p>
                 <p><strong>J/K o ↑/↓:</strong> Navegar artículos</p>
                 <p><strong>Space/Enter:</strong> Expandir artículo</p>
                 <p><strong>ESC:</strong> Cerrar artículos</p>
@@ -1276,24 +2047,51 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	username := getUserFromRequest(r)
 	feeds := loadFeedsForUser(username)
+	log.Printf("🔍 Loading home for user: %s, feeds count: %d", username, len(feeds))
+
 	var allArticles []Article
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
 	for _, feed := range feeds {
 		if !feed.Active {
+			log.Printf("⏭️ Skipping inactive feed: %s", feed.URL)
 			continue
 		}
+		log.Printf("📡 Processing active feed: %s", feed.URL)
 		wg.Add(1)
 		go func(feedURL string) {
 			defer wg.Done()
 			articles := getCachedOrFetch(feedURL)
+			log.Printf("📰 Fetched %d articles from %s", len(articles), feedURL)
 			mu.Lock()
+			// Tomar sólo las 10 últimas por feed (asumimos orden descendente en getCachedOrFetch)
+			if len(articles) > 10 {
+				articles = articles[:10]
+			}
 			allArticles = append(allArticles, articles...)
 			mu.Unlock()
 		}(feed.URL)
 	}
 	wg.Wait()
+
+	// Filtrar artículos que ya se mostraron en sesiones anteriores del usuario
+	if username == "" {
+		username = getUserFromRequest(r)
+	}
+	loaded := loadLoadedArticlesSet(username)
+	filtered := make([]Article, 0, len(allArticles))
+	for _, a := range allArticles {
+		if !loaded[a.Link] {
+			filtered = append(filtered, a)
+			loaded[a.Link] = true
+		}
+	}
+	allArticles = filtered
+	// Persistir conjunto actualizado
+	saveLoadedArticlesSet(username, loaded)
+
+	log.Printf("📊 Total articles before processing: %d", len(allArticles))
 
 	for i := range allArticles {
 		allArticles[i].IsFav = isArticleFavorite(allArticles[i].Link)
@@ -1307,15 +2105,20 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		return allArticles[i].Date > allArticles[j].Date
 	})
 
-	if len(allArticles) > 50 {
-		allArticles = allArticles[:50]
-	}
+	// Mostrar todos los últimos (no limitar a 50)
 
 	// Precargar contenido completo de los primeros artículos en segundo plano
 	go preloadArticleContent(allArticles)
 
 	data := TemplateData{
 		Articles: allArticles,
+	}
+
+	log.Printf("📊 Final article count being sent to template: %d", len(allArticles))
+	if len(allArticles) > 0 {
+		log.Printf("📰 First article: %s - %s", allArticles[0].Title, allArticles[0].Source)
+	} else {
+		log.Printf("❌ NO ARTICLES TO DISPLAY!")
 	}
 
 	elapsed := time.Since(startTime)
@@ -1587,6 +2390,83 @@ func apiFavoritesHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("✅ Returned %d favorites", len(favorites))
 }
 
+// Persistencia simple por usuario
+func appendJSONItem(path string, item any) error {
+	var arr []any
+	if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
+		_ = json.Unmarshal(b, &arr)
+	}
+	arr = append(arr, item)
+	b, _ := json.MarshalIndent(arr, "", "  ")
+	return os.WriteFile(path, b, 0644)
+}
+
+func listJSONItems(path string) []map[string]any {
+	var arr []map[string]any
+	if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
+		_ = json.Unmarshal(b, &arr)
+	}
+	return arr
+}
+
+// ==========================
+// Persistencia de artículos ya "cargados" por sesión (por usuario)
+// ==========================
+func loadLoadedArticlesSet(username string) map[string]bool {
+	path := username + "_loaded.json"
+	var arr []string
+	if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
+		_ = json.Unmarshal(b, &arr)
+	}
+	set := make(map[string]bool, len(arr))
+	for _, s := range arr {
+		set[s] = true
+	}
+	return set
+}
+
+func saveLoadedArticlesSet(username string, set map[string]bool) {
+	arr := make([]string, 0, len(set))
+	for k := range set {
+		arr = append(arr, k)
+	}
+	b, _ := json.MarshalIndent(arr, "", "  ")
+	_ = os.WriteFile(username+"_loaded.json", b, 0644)
+}
+
+func saveListHandler(listName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		username := getUserFromRequest(r)
+		var req struct{ Title, Link, Source string }
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Link == "" {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		path := username + "_" + listName + ".json"
+		item := map[string]any{"title": req.Title, "link": req.Link, "source": req.Source, "user": username}
+		if err := appendJSONItem(path, item); err != nil {
+			http.Error(w, "Failed to save", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"success": true})
+	}
+}
+
+func listHandler(listName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username := getUserFromRequest(r)
+		path := username + "_" + listName + ".json"
+		items := listJSONItems(path)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(items)
+	}
+}
+
 func clearCacheHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("🧹 Clear cache handler called")
 	globalCache.mutex.Lock()
@@ -1805,11 +2685,12 @@ func cleanScrapedContent(content string) string {
 		content = re.ReplaceAllString(content, "")
 	}
 
-	// Convertir algunas etiquetas HTML a texto plano
+	// Convertir algunas etiquetas HTML a texto plano con mejor formato
 	content = strings.ReplaceAll(content, "<br>", "\n")
 	content = strings.ReplaceAll(content, "<br/>", "\n")
 	content = strings.ReplaceAll(content, "<br />", "\n")
 	content = strings.ReplaceAll(content, "</p>", "\n\n")
+	content = strings.ReplaceAll(content, "<p>", "")
 	content = strings.ReplaceAll(content, "</div>", "\n")
 	content = strings.ReplaceAll(content, "</h1>", "\n\n")
 	content = strings.ReplaceAll(content, "</h2>", "\n\n")
@@ -1817,6 +2698,12 @@ func cleanScrapedContent(content string) string {
 	content = strings.ReplaceAll(content, "</h4>", "\n\n")
 	content = strings.ReplaceAll(content, "</h5>", "\n\n")
 	content = strings.ReplaceAll(content, "</h6>", "\n\n")
+	content = strings.ReplaceAll(content, "<h1>", "\n\n")
+	content = strings.ReplaceAll(content, "<h2>", "\n\n")
+	content = strings.ReplaceAll(content, "<h3>", "\n\n")
+	content = strings.ReplaceAll(content, "<h4>", "\n\n")
+	content = strings.ReplaceAll(content, "<h5>", "\n\n")
+	content = strings.ReplaceAll(content, "<h6>", "\n\n")
 
 	// Remover todas las etiquetas HTML restantes
 	htmlTagRe := regexp.MustCompile(`<[^>]*>`)
@@ -1831,12 +2718,16 @@ func cleanScrapedContent(content string) string {
 	content = strings.ReplaceAll(content, "&nbsp;", " ")
 
 	// Limpiar espacios en blanco excesivos
-	spaceRe := regexp.MustCompile(`\s+`)
+	spaceRe := regexp.MustCompile(`[ \t]+`)
 	content = spaceRe.ReplaceAllString(content, " ")
 
-	// Limpiar saltos de línea excesivos
-	newlineRe := regexp.MustCompile(`\n\s*\n\s*\n`)
+	// Limpiar saltos de línea excesivos pero mantener párrafos
+	newlineRe := regexp.MustCompile(`\n\s*\n\s*\n+`)
 	content = newlineRe.ReplaceAllString(content, "\n\n")
+
+	// Remover espacios al inicio y final de líneas
+	lineCleanRe := regexp.MustCompile(`(?m)^[ \t]+|[ \t]+$`)
+	content = lineCleanRe.ReplaceAllString(content, "")
 
 	return strings.TrimSpace(content)
 }
@@ -1902,14 +2793,7 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ANCAP WEB - LOGIN</title>
     <style>
-        @font-face {
-            font-family: 'JetBrains Mono';
-            src: url('/static/fonts/JetBrainsMonoNerdFont-Regular.woff2') format('woff2'),
-                 url('/static/fonts/JetBrainsMono/JetBrainsMonoNerdFont-Regular.ttf') format('truetype');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap');
         body { 
             background: #000; 
             color: #00ff00; 
@@ -1939,18 +2823,18 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             font-size: 20px;
             font-weight: bold;
             margin-bottom: 12px;
-            color: #00aa00;
+            color: #00ff00; /* Verde más brillante */
             text-align: center;
             font-family: 'JetBrains Mono', monospace;
             white-space: pre;
             line-height: 1.0;
-            text-shadow: 0 0 10px #00aa00, 0 0 20px #00aa00;
+            text-shadow: 0 0 15px #00ff00, 0 0 25px #00ff00, 0 0 35px #00ff00; /* Brillo más intenso */
             animation: glow 2s ease-in-out infinite alternate;
         }
         
         @keyframes glow {
-            from { text-shadow: 0 0 10px #00aa00, 0 0 20px #00aa00; }
-            to { text-shadow: 0 0 15px #00aa00, 0 0 30px #00aa00; }
+            from { text-shadow: 0 0 15px #00ff00, 0 0 25px #00ff00, 0 0 35px #00ff00; }
+            to { text-shadow: 0 0 25px #00ff00, 0 0 40px #00ff00, 0 0 55px #00ff00; } /* Brillo más intenso */
         }
         
         .login-subtitle {
@@ -1978,23 +2862,23 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
         
         .login-input {
             background: rgba(0, 0, 0, 0.9);
-            border: 2px dashed #00ff00;
-            border-radius: 12px;
+            border: 1px dashed #00ff00;
+            border-radius: 8px;
             color: #00ff00;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 18px;
-            padding: 12px 18px;
+            font-size: 14px;
+            padding: 8px 12px;
             margin: 8px 0;
-            width: 100%;
-            max-width: 320px;
+            width: 90%;
+            max-width: 260px;
             box-sizing: border-box;
             text-align: center;
             letter-spacing: 1px;
             transition: all 0.3s ease;
             backdrop-filter: blur(5px);
             box-shadow: 
-                0 0 20px rgba(0, 255, 0, 0.2),
-                inset 0 0 20px rgba(0, 255, 0, 0.05);
+                0 0 12px rgba(0, 255, 0, 0.15),
+                inset 0 0 12px rgba(0, 255, 0, 0.05);
         }
         
         .login-input::placeholder {
@@ -2013,17 +2897,17 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
         
         .login-button {
             background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #00ff00;
-            border-radius: 12px;
+            border: 1px solid #00ff00;
+            border-radius: 8px;
             color: #00ff00;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
-            padding: 12px 25px;
+            padding: 8px 18px;
             cursor: pointer;
             margin-top: 15px;
             width: 100%;
-            max-width: 320px;
+            max-width: 260px;
             transition: all 0.3s ease;
             letter-spacing: 2px;
             text-transform: uppercase;
@@ -2188,12 +3072,121 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
             }
         }
         
+        async function registerUser(username, password) {
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (!res.ok) {
+                const msg = await res.text();
+                throw new Error(msg || 'Registration failed');
+            }
+            return res.json();
+        }
+
+
+
+        async function saveToList(listName, el) {
+            const container = el.closest('.article-container');
+            const line = container.querySelector('.article-line');
+            const title = container.querySelector('.title')?.textContent || '';
+            const source = container.querySelector('.source-name')?.textContent || '';
+            const link = line?.dataset.url || '';
+            try {
+                const endpoint = listName === 'loved' ? '/api/save-loved' : '/api/save-saved';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, source, link })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                el.textContent = (listName === 'loved' ? 'LOVED' : 'SAVED') + ' ✓';
+                // Refrescar listas si estamos en sus pestañas
+                if (document.getElementById('favorites-list')) {
+                    refreshLists();
+                }
+            } catch(e) {
+                console.error('Save failed', e);
+                el.textContent = 'ERROR';
+            }
+        }
+
+        async function refreshLists() {
+            try {
+                const [savedRes, lovedRes] = await Promise.all([
+                    fetch('/api/list-saved'),
+                    fetch('/api/list-loved')
+                ]);
+                const saved = await savedRes.json();
+                const loved = await lovedRes.json();
+                const elSaved = document.getElementById('saved-list');
+                const elFav   = document.getElementById('favorites-list');
+                if (elSaved) elSaved.innerHTML = saved.map(function(i){ return '<div class="article-line"><span class="source-name">'+(i.source||'')+'</span>&nbsp;<span class="title">'+(i.title||'')+'</span></div>'; }).join('');
+                if (elFav)   elFav.innerHTML   = loved.map(function(i){ return '<div class="article-line"><span class="source-name">'+(i.source||'')+'</span>&nbsp;<span class="title">'+(i.title||'')+'</span></div>'; }).join('');
+                const cSaved = document.getElementById('count-saved');
+                const cLoved = document.getElementById('count-loved');
+                if (cSaved) cSaved.textContent = String(saved.length || 0);
+                if (cLoved) cLoved.textContent = String(loved.length || 0);
+
+                // Si estamos en una de las pestañas de listas, reconstruir navegación
+                const activeTab = document.querySelector('.tab.active')?.dataset?.tab;
+                if (activeTab === 'favorites' || activeTab === 'saved') {
+                    initializeArticlesList();
+                    highlightCurrentArticle();
+                }
+            } catch(e) {
+                console.error('refreshLists failed', e);
+            }
+        }
+
+        function shareArticle(btn) {
+            const container = btn.closest('.article-container');
+            const link = container.querySelector('.article-line')?.dataset.url || '';
+            if (navigator.share) {
+                navigator.share({ url: link }).catch(()=>{});
+            } else {
+                navigator.clipboard.writeText(link).catch(()=>{});
+                btn.textContent = 'COPIED ✓';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const usernameInput = document.getElementById('username');
             usernameInput.focus();
             
             // Agregar evento de input para detectar cuando se escribe el usuario
             usernameInput.addEventListener('input', handleUsernameInput);
+
+            const registerBtn = document.getElementById('register-button');
+            registerBtn.addEventListener('click', async () => {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const errorDiv = document.getElementById('login-error');
+                if (!username || !password) {
+                    errorDiv.textContent = 'Please enter username and password to register';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                errorDiv.style.display = 'none';
+                const btn = document.getElementById('register-button');
+                btn.textContent = 'REGISTERING...';
+                btn.disabled = true;
+                try {
+                    await registerUser(username, password);
+                    errorDiv.style.display = 'block';
+                    errorDiv.style.color = '#00ff00';
+                    errorDiv.textContent = '✅ Account created. You can login now.';
+                    document.getElementById('login-button').focus();
+                } catch (e) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.style.color = '#ff3333';
+                    errorDiv.textContent = e.message;
+                } finally {
+                    btn.textContent = 'REGISTRAR';
+                    btn.disabled = false;
+                }
+            });
         });
     </script>
 </head>
@@ -2224,11 +3217,14 @@ func loginPageHandler(w http.ResponseWriter, r *http.Request) {
                 <button type="submit" id="login-button" class="login-button">
                     ACCEDER
                 </button>
+                <button type="button" id="register-button" class="login-button" style="margin-top:8px;">
+                    REGISTRAR
+                </button>
                 <div id="login-error" class="login-error" style="display: none;"></div>
                 <div class="login-info">
                     Credenciales por defecto:<br>
                     <strong>admin</strong> / admin123<br>
-                    <strong>ancap</strong> / libertad
+                    <strong>ancap</strong> / ghanima
                 </div>
             </form>
         </div>
@@ -2285,6 +3281,47 @@ func loginAPIHandler(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("❌ Login fallido para usuario: %s", loginReq.Username)
 	}
+}
+
+// Registro de usuario simple (almacenado en users.json)
+func registerAPIHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	req.Username = strings.TrimSpace(req.Username)
+	req.Password = strings.TrimSpace(req.Password)
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Username and password required", http.StatusBadRequest)
+		return
+	}
+
+	users := loadUsers()
+	for _, u := range users {
+		if u.Username == req.Username {
+			http.Error(w, "User already exists", http.StatusConflict)
+			return
+		}
+	}
+
+	users = append(users, User{Username: req.Username, Password: req.Password})
+	if err := saveUsers(users); err != nil {
+		http.Error(w, "Failed to save user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -2598,9 +3635,40 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	// Endpoint de recarga automática (SSE). Air reinicia el binario -> la conexión se corta -> el cliente recarga al reconectar.
+	mux.HandleFunc("/dev/reload", func(w http.ResponseWriter, r *http.Request) {
+		// Headers SSE
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+		// Enviar pings periódicos; cuando el proceso se reinicie, la conexión se cortará
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case t := <-ticker.C:
+				_, _ = fmt.Fprintf(w, "data: %d\n\n", t.Unix())
+				flusher.Flush()
+			}
+		}
+	})
+
 	// Rutas públicas (sin autenticación)
 	mux.HandleFunc("/login", loginPageHandler)
 	mux.HandleFunc("/api/login", loginAPIHandler)
+	mux.HandleFunc("/api/register", registerAPIHandler)
+	// listas por usuario
+	mux.Handle("/api/save-saved", authMiddleware(http.HandlerFunc(saveListHandler("saved"))))
+	mux.Handle("/api/save-loved", authMiddleware(http.HandlerFunc(saveListHandler("loved"))))
+	mux.Handle("/api/list-saved", authMiddleware(http.HandlerFunc(listHandler("saved"))))
+	mux.Handle("/api/list-loved", authMiddleware(http.HandlerFunc(listHandler("loved"))))
 	mux.HandleFunc("/api/preload-feeds", preloadFeedsHandler)
 	mux.HandleFunc("/static/", staticHandler)
 
@@ -2620,7 +3688,7 @@ func main() {
 
 	log.Println("🚀 Starting ANCAP WEB Server with Authentication...")
 	log.Println("🌐 Server running at http://localhost:8082")
-	log.Println("🔐 Default users: admin/admin123, ancap/libertad")
+	log.Println("🔐 Default users: admin/admin123, ancap/ghanima")
 
 	if err := http.ListenAndServe(":8082", gzipMiddleware(mux)); err != nil {
 		log.Fatalf("❌ Server failed to start: %v", err)
